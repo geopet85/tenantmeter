@@ -21,4 +21,7 @@
 - Reproducible performance benchmark and realistic synthetic AWS scenario.
 - Expanded prerequisites, credentials, commands, and expected outcomes.
 
+- File/row inventory cursors skip parsing completed files on resume, with legacy checkpoint support.
+- Node installation and troubleshooting guide for macOS, Windows, Linux, and WSL.
+
 Source is public. Live provider verification and npm publication remain pending.

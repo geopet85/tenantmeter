@@ -13,6 +13,7 @@
   "files": [
     "dist",
     "README.md",
+    "INSTALL.md",
     "LICENSE",
     "CONTRIBUTING.md",
     "SECURITY.md",

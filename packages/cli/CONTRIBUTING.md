@@ -1,6 +1,6 @@
 # Contributing
 
-1. Install Node.js 22 or newer and npm. Check `node --version` and `npm --version`.
+1. Follow [Node.js and npm setup](INSTALL.md) (22 LTS; CI also tests 24 LTS). Check `node --version` and `npm --version`.
 2. Run `npm ci` inside `packages/cli`.
 3. Run `npm run check` before proposing a change.
 4. Include a fake-data reproduction for bugs.

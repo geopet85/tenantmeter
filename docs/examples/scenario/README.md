@@ -6,7 +6,7 @@ The default dataset contains 1,203 objects and 17,301,632 bytes (16.5 MiB). It c
 
 ## Prerequisites
 
-- Node.js 22 or newer and npm.
+- [Node.js 22 or newer and npm](../../../packages/cli/INSTALL.md); follow the OS-specific installation and version checks.
 - The source repository. This helper is not included in the published CLI package.
 - Run the commands below from `packages/cli`.
 - For AWS: an existing general-purpose S3 bucket in the chosen region. Use a bucket that has **never enabled versioning**. Enabled and suspended versioning are rejected.

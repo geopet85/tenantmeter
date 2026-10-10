@@ -14,9 +14,9 @@ function run(command, args, cwd) {
 const temp = await mkdtemp(join(tmpdir(), 'tenantmeter-package-'));
 try {
   const pack = JSON.parse(npmRun(['pack', '--json', '--ignore-scripts', '--pack-destination', temp], process.cwd()))[0];
-  const allowed = /^(dist\/tenantmeter\.js|package\.json|README\.md|LICENSE|CONTRIBUTING\.md|SECURITY\.md|CHANGELOG\.md|TODO\.md|scripts\/(scheduled-scan|package-check|test|examples)\.mjs)$/;
+  const allowed = /^(dist\/tenantmeter\.js|package\.json|README\.md|INSTALL\.md|LICENSE|CONTRIBUTING\.md|SECURITY\.md|CHANGELOG\.md|TODO\.md|scripts\/(scheduled-scan|package-check|test|examples)\.mjs)$/;
   for (const file of pack.files) assert.match(file.path, allowed, `Unexpected package file: ${file.path}`);
-  for (const name of ['dist/tenantmeter.js', 'LICENSE', 'README.md', 'TODO.md', 'scripts/scheduled-scan.mjs']) assert.ok(pack.files.some(x => x.path === name), `Missing ${name}`);
+  for (const name of ['dist/tenantmeter.js', 'LICENSE', 'README.md', 'INSTALL.md', 'TODO.md', 'scripts/scheduled-scan.mjs']) assert.ok(pack.files.some(x => x.path === name), `Missing ${name}`);
   // Install the locked production dependency graph before testing the package.
   const manifest = JSON.parse(await readFile('package.json', 'utf8'));
   const lock = JSON.parse(await readFile('package-lock.json', 'utf8'));

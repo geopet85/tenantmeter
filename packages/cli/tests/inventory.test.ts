@@ -95,3 +95,82 @@ test('comparison preserves big integer deltas and missing zero counters; partial
 test('commands reject ignored options and timer overflow', () => {
   for (const args of [['report','--state','x','--all'], ['demo','--prefix','x'], ['inventory','--input','x','--manifest','y'], ['demo','--max-seconds','2147484'], ['compare','--state','x']]) assert.throws(() => options(args));
 });
+
+test('file-row cursors resume across gzip files, filters and multiline CSV; legacy offsets still work', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'tenantmeter-file-cursor-'));
+  const signal = new AbortController().signal;
+  try {
+    const texts = [
+      'Bucket,Key,Size\ntest,customers/a/first,1\nother,ignored,90\n',
+      'Bucket,Key,Size\nother,ignored,99\ntest,"customers/b/two\nlines",2\ntest,customers/b/last,3\n'
+    ];
+    const files = [];
+    for (const [index, text] of texts.entries()) {
+      const path = join(dir, `${index}.csv.gz`);
+      const data = gzipSync(text);
+      await writeFile(path, data);
+      files.push({ path, sha256: createHash('sha256').update(data).digest('hex') });
+    }
+    const prepared: Config = {...config, inventory: {files, encodedKeys: false}};
+    const partial = await run(prepared, 2);
+    assert.equal(partial.cursor, 'v2:1:2');
+    const resumed = await run(prepared, Infinity, partial);
+    assert.equal(resumed.bytes, '6'); assert.equal(resumed.objects, 3);
+    assert.deepEqual(resumed.tenants, (await run(prepared)).tenants);
+    assert.equal((await run(prepared, Infinity, {...partial, cursor: '2'})).bytes, '6');
+    for (const cursor of ['v2:2:0', 'v2:1:99', 'v2:-1:0', 'v2:1:1.2', 'v2:1:9007199254740992', '-1', '1e1']) {
+      const source = await inventorySource(prepared);
+      try { await assert.rejects(source.page(cursor, 1, signal), /cursor/); }
+      finally { source.close(); }
+    }
+    const source = await inventorySource(prepared);
+    try {
+      const page = await source.page('v2:1:2', 1, signal);
+      assert.deepEqual(page.objects, [{key: 'customers/b/last', bytes: 3}]);
+      assert.equal(page.nextCursor, null);
+      await assert.rejects(source.page('v2:0:1', 1, signal), /sequence/);
+    } finally { source.close(); }
+    await writeFile(files[0].path, gzipSync(texts[0] + 'test,extra,100\n'));
+    await assert.rejects(inventorySource(prepared), /changed/);
+  } finally { await rm(dir, {recursive: true, force: true}); }
+});
+
+test('five-file gzip inventory resumes at every object boundary and through successive limits', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'tenantmeter-all-cursors-'));
+  try {
+    const files = [];
+    for (let file = 0; file < 5; file++) {
+      const text = 'Bucket,Key,Size\n' + Array.from({length: 8}, (_, row) => row % 3 === 0
+        ? 'other,ignored,99\n'
+        : `test,customers/t${file}/r${row},${row}\n`).join('');
+      const data = gzipSync(text);
+      const path = join(dir, `${file}.csv.gz`);
+      await writeFile(path, data);
+      files.push({path, sha256: createHash('sha256').update(data).digest('hex')});
+    }
+    const prepared: Config = {...config, inventory: {files, encodedKeys: false}};
+    const full = await run(prepared);
+    assert.equal(full.objects, 25);
+    assert.equal(full.bytes, '95');
+    const assertComplete = (state: typeof full, label: string) => {
+      assert.equal(state.status, 'complete', label);
+      assert.equal(state.objects, full.objects, label);
+      assert.equal(state.bytes, full.bytes, label);
+      assert.deepEqual(state.tenants, full.tenants, label);
+      assert.deepEqual(state.unmatched, full.unmatched, label);
+    };
+    for (let limit = 1; limit < full.objects; limit++) {
+      const partial = await run(prepared, limit);
+      assert.equal(partial.objects, limit);
+      assert.equal(partial.status, 'partial');
+      assertComplete(await run(prepared, Infinity, partial), `file-row cursor at ${limit}`);
+      assertComplete(await run(prepared, Infinity, {...partial, cursor: String(limit)}), `legacy cursor at ${limit}`);
+    }
+    let successive = newState(prepared);
+    for (let limit = 1; limit <= full.objects; limit++) {
+      successive = await run(prepared, limit, successive);
+      assert.equal(successive.objects, limit, `successive limit ${limit}`);
+    }
+    assertComplete(successive, 'successive resumes');
+  } finally { await rm(dir, {recursive: true, force: true}); }
+});

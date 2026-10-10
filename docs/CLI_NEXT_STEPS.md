@@ -4,7 +4,7 @@ The technical checklist is [packages/cli/TODO.md](../packages/cli/TODO.md). Setu
 
 ## Local checks
 
-Prerequisites: Node.js 22+, npm, a source checkout, and npm registry access for the first install and dependency audit. Git is optional for a downloaded archive. Offline tests, demo, packaging checks, examples, and benchmarks need no cloud credentials. Run from `packages/cli`:
+Prerequisites: [Node.js 22+ and npm setup](../packages/cli/INSTALL.md), a source checkout, and npm registry access for the first install and dependency audit. Git is optional for a downloaded archive. Offline tests, demo, packaging checks, examples, and benchmarks need no cloud credentials. Run from `packages/cli`:
 
 ```sh
 npm ci

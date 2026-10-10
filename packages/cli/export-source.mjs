@@ -17,7 +17,7 @@ await mkdir(destination, { recursive: false }); // Refuse to overwrite an existi
 const files = [
   '.nvmrc', '.gitignore', '.github/workflows/cli.yml', '.github/ISSUE_TEMPLATE/cli-feedback.yml',
   ...['src', 'tests', 'scripts', 'TODO.md', 'SOURCE_README.md', 'package.json', 'package-lock.json', 'tsconfig.json', 'build.mjs', 'export-source.mjs',
-    'README.md', 'LICENSE', 'SECURITY.md', 'CONTRIBUTING.md', 'CHANGELOG.md'].map(path => `packages/cli/${path}`),
+    'README.md', 'INSTALL.md', 'LICENSE', 'SECURITY.md', 'CONTRIBUTING.md', 'CHANGELOG.md'].map(path => `packages/cli/${path}`),
   'lib/tenant/pattern.ts', 'lib/scans/aggregate.ts', 'lib/providers/types.ts',
   'tests/pattern.test.ts', 'tests/aggregate.test.ts',
   'docs/CLI_NEXT_STEPS.md', 'docs/CLI_LAUNCH_GUIDE.md', 'docs/PERFORMANCE.md',

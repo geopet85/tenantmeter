@@ -6,7 +6,7 @@ Cloud scans list object keys and sizes. They do not download payloads, upload ob
 
 ## Prerequisites
 
-- **Node.js 22 or newer and npm.** Check with `node --version` and `npm --version`. Download Node from [nodejs.org](https://nodejs.org/en/download) or use your version manager.
+- **Node.js 22 or newer and npm.** Check with `node --version` and `npm --version`. Use the OS-specific steps below; npm comes with Node.
 - **Source checkout.** Git is needed only to clone the repository. A downloaded source archive works too. `npm ci` needs access to the npm registry on the first install.
 - **AWS scans:** an existing S3 bucket, its region, and credentials with `s3:ListBucket` permission. Use an AWS profile/SSO session, environment credentials, or an IAM role. AWS CLI is optional unless you use it to configure or sign in to your profile.
 - **R2 scans:** an existing bucket, your Cloudflare account ID, and bucket-scoped S3 Access Key ID and Secret Access Key with listing permission. A Cloudflare bearer token will not work.
@@ -14,6 +14,21 @@ Cloud scans list object keys and sizes. They do not download payloads, upload ob
 - **Customer mapping:** a key pattern such as `customers/{tenant_id}/*`. Use `--prefix customers/` when that is the intended scan scope.
 
 No database, Docker, Python, Rust, or hosted service is required. Commands below use a POSIX shell; on Windows, use the same CLI arguments and set credentials through PowerShell environment variables or your credential manager.
+
+## Install Node.js
+
+- **macOS:** open the [Node.js download page](https://nodejs.org/en/download), select **22 LTS → macOS → .pkg**, run the installer, and reopen Terminal.
+- **Windows:** select **22 LTS → Windows → .msi** on the same page. Choose x64 for Intel/AMD or ARM64 for ARM. Keep npm and PATH enabled, then reopen PowerShell.
+- **Linux / WSL:** install [nvm](https://github.com/nvm-sh/nvm#installing-and-updating), reopen your terminal, then run `nvm install 22`, `nvm use 22`, and `nvm alias default 22`.
+
+Verify before building:
+
+```sh
+node --version
+npm --version
+```
+
+Expect Node `v22.x.x` or `v24.x.x` and an npm version. CI tests both Node versions. The repository's `.nvmrc` selects 22. See [step-by-step setup and troubleshooting](packages/cli/INSTALL.md) for the Linux installer command, source ZIP instructions, PATH problems, and PowerShell errors.
 
 ## Build and try
 

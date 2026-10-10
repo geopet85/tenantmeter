@@ -47,6 +47,8 @@ Scope: the free local CLI. Hosted accounts, billing submission, alerts, and hard
 - [x] Add bounded AWS scenario upload and exact-key cleanup helpers with tests.
 - [x] Expand prerequisites and commands across root, package, scenario, and contributor docs.
 - [x] Add public repository, issue, and homepage links to package metadata.
+- [x] Add OS-specific Node installation, source ZIP setup, and common error fixes; include the guide in tarballs and source exports.
+- [x] Add inventory file/row cursors to skip parsing completed files on resume; keep legacy cursor support and file-change checks.
 
 ## External checks
 
@@ -62,7 +64,6 @@ Scope: the free local CLI. Hosted accounts, billing submission, alerts, and hard
 ## Later scaling work
 
 - [ ] Replace full-map copies and full checkpoint rewrites when measured tenant counts require it.
-- [ ] Add inventory file/row cursors to avoid rereading completed files on resume.
 - [ ] Stream report output for workloads whose tenant population exceeds available memory.
 
 These scaling items need a storage/checkpoint format design and migration tests; they are not claimed complete. Current bounds and measured improvements are in ../../docs/PERFORMANCE.md. Live cloud checks remain open because this environment has no AWS/R2 credentials.

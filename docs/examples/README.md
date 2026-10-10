@@ -2,7 +2,7 @@
 
 All data is fake.
 
-Prerequisites: Node.js 22+, npm, and this source checkout. Run `npm ci` in `packages/cli` first; the initial install needs npm registry access. These files and their offline commands need no cloud credentials, database, or hosted application.
+Prerequisites: [Node.js 22+ and npm setup](../../packages/cli/INSTALL.md), and this source checkout. Run `npm ci` in `packages/cli` first; the initial install needs npm registry access. These files and their offline commands need no cloud credentials, database, or hosted application.
 
 | File | Purpose |
 | --- | --- |

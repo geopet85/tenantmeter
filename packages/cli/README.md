@@ -17,7 +17,7 @@ No database, Docker, Python, Rust, or hosted application is required. Shell exam
 
 ## Install from this checkout
 
-Requires Node.js 22 or newer and npm. Install Node from [nodejs.org](https://nodejs.org/en/download) or your existing version manager.
+Requires Node.js 22 or newer and npm. Follow [Node installation for macOS, Windows, Linux, and WSL](INSTALL.md), including version checks and common setup errors. npm is included with Node.
 
 ```sh
 cd packages/cli
@@ -203,7 +203,9 @@ For an AWS inventory, download the manifest, its sibling `manifest.checksum`, an
 
 Only CSV manifests with at least one file are supported. Parquet and ORC are unsupported. Versioned exports must contain `IsLatest` and `IsDeleteMarker`; old versions and delete markers are excluded. Rows from other buckets are excluded. Use one complete export with nonoverlapping files; duplicate object rows will be counted twice.
 
-An import's timestamp is `inventoryCreatedAt` when supplied by a manifest. It describes the supplied export, not current bucket contents. A standalone CSV has no snapshot timestamp. Inventory resume rereads earlier rows to reach its saved offset. Files are hashed before processing and checked again while reading; this adds disk reads but avoids loading the object list into memory. No cloud credentials or cloud calls are needed.
+Inventory checkpoints now save file/row cursors. Resume verifies every input hash, skips parsing completed files, and rereads the active file to its saved row. Gzip resumes still decompress the active file from its beginning. Existing numeric-offset checkpoints remain readable and switch to file/row cursors on the next saved page. Older CLI builds cannot read the new cursor; keep this build when resuming.
+
+An import's timestamp is `inventoryCreatedAt` when supplied by a manifest. It describes the supplied export, not current bucket contents. A standalone CSV has no snapshot timestamp. Files are hashed before processing and checked again while reading; this adds disk reads but avoids loading the object list into memory. No cloud credentials or cloud calls are needed.
 
 ## Compare existing counters
 

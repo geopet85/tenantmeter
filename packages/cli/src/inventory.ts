@@ -79,9 +79,13 @@ export async function prepareInventory(config: Config, options: {
   return prepared;
 }
 
-async function* objects(config: Config, signal: AbortSignal): AsyncGenerator<ObjectRow> {
+type InventoryRow = { object: ObjectRow; cursor: string };
+async function* objects(config: Config, signal: AbortSignal, startFile = 0, startRow = 0): AsyncGenerator<InventoryRow> {
   const inventory = config.inventory!;
-  for (const file of inventory.files) {
+  for (let fileIndex = startFile; fileIndex < inventory.files.length; fileIndex++) {
+    const file = inventory.files[fileIndex];
+    const skipRows = fileIndex === startFile ? startRow : 0;
+    let rowIndex = 0;
     const input = createReadStream(file.path, { signal });
     const hash = createHash('sha256');
     input.on('data', chunk => hash.update(chunk));
@@ -94,6 +98,8 @@ async function* objects(config: Config, signal: AbortSignal): AsyncGenerator<Obj
       for await (const row of csvRows(stream)) {
         signal.throwIfAborted();
         if (!names) { names = schema(row); indices = indexColumns(names); continue; }
+        rowIndex++;
+        if (rowIndex <= skipRows) continue;
         if (row.length !== names.length) throw new Error('Inventory row has the wrong number of columns.');
         const value = (name: string) => row[indices![name]];
         if (Object.hasOwn(indices!, 'IsLatest') && !['true', 'false'].includes(value('IsLatest'))) throw new Error('Invalid IsLatest value in inventory.');
@@ -106,8 +112,9 @@ async function* objects(config: Config, signal: AbortSignal): AsyncGenerator<Obj
         }
         const size = decimalBytes(value('Size'), 'Inventory Size');
         if (!Number.isSafeInteger(Number(size))) throw new Error('Inventory object size exceeds the safe integer range.');
-        if (key.startsWith(config.prefix)) yield { key, bytes: Number(size) };
+        if (key.startsWith(config.prefix)) yield { object: { key, bytes: Number(size) }, cursor: `v2:${fileIndex}:${rowIndex}` };
       }
+      if (rowIndex < skipRows) throw new Error('Inventory cursor exceeds the file contents.');
       if (!names) throw new Error('Inventory has no CSV header. Supply --columns for a headerless file.');
       if (hash.digest('hex') !== file.sha256) throw new Error('Inventory file changed while reading. Start a fresh scan from an unchanged export.');
     } finally { input.destroy(); gzip?.destroy(); }
@@ -121,30 +128,43 @@ export async function inventorySource(config: Config, signal?: AbortSignal): Pro
   if (!preparedConfigurations.delete(config)) for (const file of config.inventory.files) {
     if ((await fileHashes(file.path, signal)).sha256 !== file.sha256) throw new Error('Inventory file changed since this scan started. Start a new scan.');
   }
-  let iterator: AsyncGenerator<ObjectRow> | undefined;
+  let iterator: AsyncGenerator<InventoryRow> | undefined;
   let position = 0;
-  let pending: IteratorResult<ObjectRow> | undefined;
+  let pending: IteratorResult<InventoryRow> | undefined;
+  let expectedCursor: string | null = null;
   return {
     async page(cursor, maxKeys, signal) {
-      const offset = cursor === null ? 0 : Number(cursor);
-      if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('Invalid inventory cursor.');
       if (!iterator) {
-        iterator = objects(config, signal);
-        while (position < offset) {
-          if ((await iterator.next()).done) throw new Error('Inventory cursor exceeds the file contents.');
-          position++;
+        const location = cursor?.match(/^v2:(0|[1-9][0-9]*):(0|[1-9][0-9]*)$/);
+        if (location) {
+          const fileIndex = Number(location[1]);
+          const rowIndex = Number(location[2]);
+          if (!Number.isSafeInteger(fileIndex) || fileIndex >= config.inventory!.files.length ||
+              !Number.isSafeInteger(rowIndex)) throw new Error('Invalid inventory cursor.');
+          iterator = objects(config, signal, fileIndex, rowIndex);
+        } else {
+          if (cursor !== null && !/^(0|[1-9][0-9]*)$/.test(cursor)) throw new Error('Invalid inventory cursor.');
+          const offset = cursor === null ? 0 : Number(cursor);
+          if (!Number.isSafeInteger(offset)) throw new Error('Invalid inventory cursor.');
+          // Version 1 checkpoints counted emitted objects across the complete export.
+          iterator = objects(config, signal);
+          while (position < offset) {
+            if ((await iterator.next()).done) throw new Error('Inventory cursor exceeds the file contents.');
+            position++;
+          }
         }
+        expectedCursor = cursor;
       }
-      if (position !== offset) throw new Error('Inventory cursor is out of sequence.');
+      if (cursor !== expectedCursor) throw new Error('Inventory cursor is out of sequence.');
       const page: ObjectRow[] = [];
       while (page.length < maxKeys) {
         const next = pending ?? await iterator.next();
         pending = undefined;
         if (next.done) break;
-        page.push(next.value); position++;
+        page.push(next.value.object); expectedCursor = next.value.cursor;
       }
       pending = await iterator.next();
-      return { objects: page, nextCursor: pending.done ? null : String(position) };
+      return { objects: page, nextCursor: pending.done ? null : expectedCursor };
     },
     close() { void iterator?.return(undefined).catch(() => {}); }
   };

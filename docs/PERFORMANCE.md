@@ -2,7 +2,7 @@
 
 ## Run the benchmark
 
-Prerequisites: Node.js 22+, npm, and the source checkout. From `packages/cli`:
+Prerequisites: [Node.js 22+ and npm setup](../packages/cli/INSTALL.md) and the source checkout. From `packages/cli`:
 
 ```sh
 npm ci
@@ -39,6 +39,6 @@ The aggregation benchmark was 3.06 times faster. Compact checkpoint JSON was abo
 
 Tenant totals remain in memory. Each page still copies the tenant map and serializes the complete checkpoint; high tenant counts make later pages more expensive. A billion-object scan or millions of distinct tenants needs a different storage design.
 
-Inventory files are streamed, but resume rehashes the files and rereads earlier rows to reach its offset. Gzip cannot seek directly to an arbitrary row. JSON/CSV output and sorting also require memory proportional to the tenant count.
+Inventory files are streamed. Resume rehashes every file, skips CSV parsing for completed files, and rereads earlier rows only in the active file. Legacy numeric cursors still reread all earlier rows once; the next saved page uses a file/row cursor. Gzip cannot seek directly to an arbitrary row. JSON/CSV output and sorting also require memory proportional to the tenant count.
 
 Use a literal `--prefix` to reduce cloud scope. Use inventory exports for large AWS buckets. Use object, request, and runtime limits for an initial trial. More concurrent LIST calls are not enabled: continuation-token ordering and page-level checkpoints remain sequential.
