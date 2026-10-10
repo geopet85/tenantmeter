@@ -54,7 +54,7 @@ Scope: the free local CLI. Hosted accounts, billing submission, alerts, and hard
 - [ ] Run the live R2 test with a disposable bucket and credentials.
 - [x] Verify the initial GitHub matrix on all six OS/Node combinations (commit 19b5eb4).
 - [x] Run full and production dependency audits: zero vulnerabilities on 2026-10-10.
-- [ ] Run the CI matrix for the current changes before release.
+- [x] Verify feature-batch CI on all six OS/Node combinations (commit 211154c, run 38055538771).
 - [ ] Confirm npm scope ownership and configure a private security-reporting contact.
 - [x] Publish the reviewed source at github.com/geopet85/tenantmeter.
 - [ ] Publish the npm package after release checks.
