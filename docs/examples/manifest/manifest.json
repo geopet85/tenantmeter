@@ -1,0 +1,13 @@
+{
+  "sourceBucket": "arn:aws:s3:::example-bucket",
+  "creationTimestamp": "1767225600000",
+  "fileFormat": "CSV",
+  "fileSchema": "Bucket, Key, Size",
+  "files": [
+    {
+      "key": "data/part.csv.gz",
+      "size": 106,
+      "MD5checksum": "00c2d9faf4c4047a8b931efb54aea572"
+    }
+  ]
+}

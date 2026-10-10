@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "bucket": "example-bucket",
+  "prefix": "",
+  "scanStartedAt": "2026-10-10T12:57:42.381Z",
+  "scanFinishedAt": "2026-10-10T12:57:42.411Z",
+  "different": 1,
+  "unmatched": {
+    "bytes": "3",
+    "objects": 1
+  },
+  "rows": [
+    {
+      "tenantId": "acme",
+      "observedBytes": "10",
+      "counterBytes": "9",
+      "deltaBytes": "1",
+      "status": "different"
+    },
+    {
+      "tenantId": "東京",
+      "observedBytes": "20",
+      "counterBytes": "20",
+      "deltaBytes": "0",
+      "status": "equal"
+    }
+  ],
+  "note": "Delta is scanned bytes minus counter bytes. Missing customers are differences even when their bytes are zero. Match measurement scope and dates before changing counters. Unmatched objects are reported separately."
+}

@@ -1,0 +1,10 @@
+{
+  "outputDir": "./scheduled-reports",
+  "args": [
+    "demo",
+    "--max-requests",
+    "10",
+    "--max-seconds",
+    "300"
+  ]
+}

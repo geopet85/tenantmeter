@@ -1,0 +1,32 @@
+name: CLI feedback
+description: Report a bug, a useful discovery, or a recurring feature you need.
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, raw object paths, tenant names, private reports, or checkpoint files. Replace names with fake examples.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What happened?
+      options: [Bug, Useful report, Feature request, Installation problem]
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: What were you trying to do?
+      description: Provider, approximate object count, CLI version, Node version, and operating system help. All counts are optional.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: What happened, and what did you expect?
+      description: Include a redacted command or error for bugs. Did the report replace an existing task or reveal a mismatch?
+    validations:
+      required: true
+  - type: textarea
+    id: recurring
+    attributes:
+      label: Would you need this again?
+      description: If so, how often? What would make a scheduled service useful?

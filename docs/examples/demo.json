@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "status": "complete",
+  "reason": "complete",
+  "provider": "demo",
+  "bucket": "demo-bucket",
+  "prefix": "",
+  "pattern": "customers/{tenant_id}/*",
+  "inventoryCreatedAt": null,
+  "startedAt": "2026-10-10T12:57:41.757Z",
+  "updatedAt": "2026-10-10T12:57:41.838Z",
+  "finishedAt": "2026-10-10T12:57:41.838Z",
+  "listingCalls": 3,
+  "pageCalls": 3,
+  "pages": 3,
+  "total": {
+    "bytes": "5501000000",
+    "objects": 2505
+  },
+  "matched": {
+    "bytes": "5500500000",
+    "objects": 2500
+  },
+  "unmatched": {
+    "bytes": "500000",
+    "objects": 5
+  },
+  "invalidTenantObjects": 0,
+  "tenants": [
+    {
+      "tenantId": "northwind",
+      "bytes": "3000000000",
+      "objects": 750
+    },
+    {
+      "tenantId": "acme",
+      "bytes": "2500000000",
+      "objects": 1250
+    },
+    {
+      "tenantId": "東京",
+      "bytes": "500000",
+      "objects": 500
+    }
+  ],
+  "measurement": "Current listed object bytes; excludes old versions, deleted objects and incomplete uploads. Not a point-in-time snapshot or a provider bill. Partial reports cover only scanned objects. Byte totals are decimal strings."
+}

@@ -1,0 +1,15 @@
+TenantMeter — COMPLETE (complete)
+Bucket: "demo-bucket" | Prefix: ""
+Pattern: "customers/{tenant_id}/*"
+Started: 2026-10-10T12:57:41.757Z | Finished: 2026-10-10T12:57:41.838Z
+Scanned: 2,505 objects | 5.12 GiB | 3 pages
+
+Customer                         Storage          Files
+"northwind"                          2.79 GiB      750
+"acme"                               2.32 GiB     1250
+"東京"                               488.28 KiB      500
+
+Matched: 5.12 GiB (2500 objects; 3 customers)
+Unmatched: 488.28 KiB (5 objects)
+
+Current listed object bytes; excludes old versions, deleted objects and incomplete uploads. Not a point-in-time snapshot or a provider bill. Partial reports cover only scanned objects. Byte totals are decimal strings.

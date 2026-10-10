@@ -1,0 +1,6 @@
+"row_type","tenant_id","bytes","objects","status","reason","started_at","finished_at"
+"tenant","northwind","3000000000","750","complete","complete","2026-10-10T12:57:41.757Z","2026-10-10T12:57:41.838Z"
+"tenant","acme","2500000000","1250","complete","complete","2026-10-10T12:57:41.757Z","2026-10-10T12:57:41.838Z"
+"tenant","東京","500000","500","complete","complete","2026-10-10T12:57:41.757Z","2026-10-10T12:57:41.838Z"
+"unmatched","","500000","5","complete","complete","2026-10-10T12:57:41.757Z","2026-10-10T12:57:41.838Z"
+"total","","5501000000","2505","complete","complete","2026-10-10T12:57:41.757Z","2026-10-10T12:57:41.838Z"

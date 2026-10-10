@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "status": "complete",
+  "reason": "complete",
+  "provider": "inventory",
+  "bucket": "example-bucket",
+  "prefix": "",
+  "pattern": "customers/{tenant_id}/*",
+  "inventoryCreatedAt": null,
+  "startedAt": "2026-10-10T12:57:42.381Z",
+  "updatedAt": "2026-10-10T12:57:42.411Z",
+  "finishedAt": "2026-10-10T12:57:42.411Z",
+  "listingCalls": 0,
+  "pageCalls": 1,
+  "pages": 1,
+  "total": {
+    "bytes": "33",
+    "objects": 3
+  },
+  "matched": {
+    "bytes": "30",
+    "objects": 2
+  },
+  "unmatched": {
+    "bytes": "3",
+    "objects": 1
+  },
+  "invalidTenantObjects": 0,
+  "tenants": [
+    {
+      "tenantId": "東京",
+      "bytes": "20",
+      "objects": 1
+    },
+    {
+      "tenantId": "acme",
+      "bytes": "10",
+      "objects": 1
+    }
+  ],
+  "measurement": "Current-version bytes in the supplied inventory export; excludes old versions, deleted objects and incomplete uploads. Not a point-in-time snapshot or a provider bill. Partial reports cover only scanned objects. Byte totals are decimal strings."
+}

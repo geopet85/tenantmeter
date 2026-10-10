@@ -1,0 +1,43 @@
+{
+  "name": "@tenantmeter/cli",
+  "version": "0.1.0",
+  "description": "Local, read-only storage usage reports per tenant for S3 and R2",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "tenantmeter": "dist/tenantmeter.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "TODO.md",
+    "scripts/scheduled-scan.mjs"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "source:export": "node export-source.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/test.mjs",
+    "check": "npm run typecheck && npm test && npm run build",
+    "prepack": "npm run build",
+    "package:check": "npm run build && node scripts/package-check.mjs",
+    "examples:generate": "npm run build && node scripts/examples.mjs",
+    "test:live": "node --import tsx --test tests/live/provider.test.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.900.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.3"
+  }
+}
