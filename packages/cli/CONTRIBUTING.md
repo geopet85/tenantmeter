@@ -19,6 +19,6 @@ Report reproducible bugs at [GitHub issues](https://github.com/geopet85/tenantme
 
 Run `npm run package:check` for packaging changes and `npm run examples:generate` when changing report fields or examples. `npm run test:live` skips without explicit opt-in flags. See `../../docs/CLI_NEXT_STEPS.md` for fixture permissions and commands.
 
-For performance changes, run `npm run bench` and describe workload size, Node version, OS, and results. The benchmark is offline; it does not measure provider latency or disk performance. See [performance checks](../../docs/PERFORMANCE.md).
+For performance changes, run `npm run bench` (aggregation) or `npm run bench:reports` (report memory and rendering) and describe workload size, Node version, OS, and results. The benchmark is offline; it does not measure provider latency or disk performance. See [performance checks](../../docs/PERFORMANCE.md).
 
 Use the [fake-data scenario](../../docs/examples/scenario/README.md) to check known quantities offline or against a disposable AWS bucket. Cloud fixture writes require separate permissions and explicit opt-in. Never run fixture helpers against a customer bucket.

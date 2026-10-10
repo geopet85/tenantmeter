@@ -25,6 +25,26 @@ macOS x64, Node 22.23.3; 20,000 objects and distinct tenants; three runs:
 
 The aggregation benchmark was 3.06 times faster. Compact checkpoint JSON was about 42% smaller for this fixture. This does not imply the same improvement for an actual bucket scan.
 
+## Report export benchmark
+
+From `packages/cli`, after `npm ci`:
+
+```sh
+npm run bench:reports
+npm run bench:reports -- --tenants 200000
+```
+
+Each format and strategy runs in a separate process. The baseline builds the tenant row array and complete output string. The current strategy renders rows into 64 KiB output batches. Equal output byte counts and SHA-256 hashes are required. Peak RSS includes Node, synthetic tenant totals, sorting, rendering, UTF-8 encoding, and hashing; it excludes checkpoint loading, disk writes, fsync, and cloud calls. This is one run per combination, not a throughput guarantee.
+
+Recorded on macOS x64, Node 22.23.3, with 100,000 customers:
+
+| Format | Baseline peak RSS, KiB | Stream peak RSS, KiB | Baseline time, ms | Stream time, ms |
+| --- | ---: | ---: | ---: | ---: |
+| JSON | 143,600 | 116,040 | 242.28 | 355.74 |
+| CSV | 183,520 | 115,560 | 478.83 | 465.71 |
+
+JSON used less peak memory but took longer to render. CSV used less peak memory with similar timing. Both strategies produced identical bytes. Actual disk or pipe performance depends on the destination.
+
 ## Changes
 
 - Sum page deltas with BigInt; convert totals to strings once per touched tenant.
@@ -34,11 +54,13 @@ The aggregation benchmark was 3.06 times faster. Compact checkpoint JSON was abo
 - Avoid hashing a freshly prepared inventory twice before parsing it. Resumed files still get a preflight hash check.
 - Resolve inventory column indices once per file.
 - Save compact JSON checkpoints to reduce written bytes.
+- Render scan JSON/CSV incrementally and batch output into at most 64 KiB per write. Slow destinations apply backpressure.
+- Format only displayed terminal rows rather than copying all tenant totals into report rows.
 
 ## Limits
 
 Tenant totals remain in memory. Each page still copies the tenant map and serializes the complete checkpoint; high tenant counts make later pages more expensive. A billion-object scan or millions of distinct tenants needs a different storage design.
 
-Inventory files are streamed. Resume rehashes every file, skips CSV parsing for completed files, and rereads earlier rows only in the active file. Legacy numeric cursors still reread all earlier rows once; the next saved page uses a file/row cursor. Gzip cannot seek directly to an arbitrary row. JSON/CSV output and sorting also require memory proportional to the tenant count.
+Inventory files are streamed. Resume rehashes every file, skips CSV parsing for completed files, and rereads earlier rows only in the active file. Legacy numeric cursors still reread all earlier rows once; the next saved page uses a file/row cursor. Gzip cannot seek directly to an arbitrary row. CSV/JSON scan exports avoid complete row arrays and output strings, but the tenant map and sorted customer IDs remain proportional to the tenant count. Checkpoint loading still parses the full file into memory. Counter comparison and snapshot diff still build their result rows and complete output strings.
 
 Use a literal `--prefix` to reduce cloud scope. Use inventory exports for large AWS buckets. Use object, request, and runtime limits for an initial trial. More concurrent LIST calls are not enabled: continuation-token ordering and page-level checkpoints remain sequential.

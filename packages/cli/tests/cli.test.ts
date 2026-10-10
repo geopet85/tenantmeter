@@ -116,3 +116,54 @@ test('diff CLI reports differences with total/unmatched CSV and equal exit codes
     assert.equal(equal.status, 0); assert.equal(JSON.parse(equal.stdout).hasDifferences, false);
   } finally {await rm(dir, {recursive: true, force: true});}
 });
+
+test('SIGINT cancels a stalled report writer and releases the completed scan lock', {skip: process.platform === 'win32', timeout: 15000}, async () => {
+  const {spawn} = await import('node:child_process');
+  const {writeFile} = await import('node:fs/promises');
+  const dir = await mkdtemp(join(tmpdir(), 'tenantmeter-stalled-output-'));
+  let child: ReturnType<typeof spawn> | undefined;
+  try {
+    const input = join(dir, 'inventory.csv'), state = join(dir, 'state.json');
+    await writeFile(input, 'Bucket,Key,Size\n' + Array.from({length: 6000}, (_, i) => `test,customers/t${i}/file,1\n`).join(''));
+    child = spawn(process.execPath, ['--import', import.meta.resolve('tsx'), entry, 'inventory', '--input', input, '--bucket', 'test', '--pattern', 'customers/{tenant_id}/*', '--yes', '--state', state, '--format', 'json'], {cwd: dir, stdio: ['ignore', 'pipe', 'pipe']});
+    const exited = new Promise<{code: number | null; signal: string | null}>((resolve, reject) => {
+      child!.once('error', reject);
+      child!.once('exit', (code, signal) => resolve({code, signal}));
+    });
+    child.stderr!.resume();
+    // Let the pipe fill without consuming any report bytes.
+    child.stdout!.on('readable', () => {});
+    let ready = false;
+    for (let attempt = 0; attempt < 200; attempt++) {
+      try { ready = JSON.parse(await readFile(state, 'utf8')).status === 'complete' && child.stdout!.readableLength > 0; }
+      catch {}
+      if (ready) break;
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    assert.ok(ready, 'Report did not reach the blocked output stage.');
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const guard = setTimeout(() => child!.kill('SIGKILL'), 5000);
+    child.kill('SIGINT');
+    const result = await exited.finally(() => clearTimeout(guard));
+    assert.equal(result.code, 130); assert.equal(result.signal, null);
+    await assert.rejects(access(`${state}.lock`));
+    assert.equal(JSON.parse(await readFile(state, 'utf8')).status, 'complete');
+  } finally {
+    child?.kill('SIGKILL'); child?.stdout?.destroy(); child?.stderr?.destroy();
+    await rm(dir, {recursive: true, force: true});
+  }
+});
+
+test('a closed stdout pipe exits cleanly after releasing the scan lock', {skip: process.platform === 'win32', timeout: 10000}, async () => {
+  const {spawn} = await import('node:child_process');
+  const dir = await mkdtemp(join(tmpdir(), 'tenantmeter-closed-output-'));
+  try {
+    const state = join(dir, 'state.json');
+    const child = spawn(process.execPath, ['--import', import.meta.resolve('tsx'), entry, 'demo', '--state', state, '--format', 'json'], {cwd: dir, stdio: ['ignore', 'pipe', 'pipe']});
+    const exited = new Promise<number | null>((resolve, reject) => { child.once('error', reject); child.once('exit', resolve); });
+    child.stdout!.destroy(); child.stderr!.resume();
+    assert.equal(await exited, 0);
+    assert.equal(JSON.parse(await readFile(state, 'utf8')).status, 'complete');
+    await assert.rejects(access(`${state}.lock`));
+  } finally { await rm(dir, {recursive: true, force: true}); }
+});

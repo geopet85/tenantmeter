@@ -288,7 +288,7 @@ JSON reports use `schemaVersion: 1`. Checkpoints use `version: 1` and are resume
 
 ## Efficiency
 
-Inventory rows are streamed instead of loading the object list. Tenant totals stay in memory. Page updates copy only affected tenant totals; checkpoints still serialize every tenant after each saved page. Listing requests use URL-encoded keys so XML control characters are handled correctly. See [performance checks](../../docs/PERFORMANCE.md) for benchmark commands, measurements, and limits.
+Inventory rows are streamed instead of loading the object list. Tenant totals stay in memory. Page updates copy only affected tenant totals; checkpoints still serialize every tenant after each saved page. CSV/JSON scan reports stream to stdout or a new output file in batches of at most 64 KiB. Slow readers pause rendering. Files become visible only after the full report is written, and existing files are never replaced. Ctrl+C during output exits 130 after releasing the checkpoint lock; a completed checkpoint remains usable with `report`. Tenant totals and sorted IDs still stay in memory. Counter comparisons and diffs still build their result rows and output strings. Listing requests use URL-encoded keys so XML control characters are handled correctly. See [performance checks](../../docs/PERFORMANCE.md) for benchmark commands, measurements, and limits.
 
 ## Measurement limits
 

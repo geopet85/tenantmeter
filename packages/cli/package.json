@@ -31,7 +31,8 @@
     "package:check": "npm run build && node scripts/package-check.mjs",
     "examples:generate": "npm run build && node scripts/examples.mjs",
     "test:live": "node --import tsx --test tests/live/provider.test.ts",
-    "bench": "node --expose-gc --import tsx scripts/benchmark.mjs"
+    "bench": "node --expose-gc --import tsx scripts/benchmark.mjs",
+    "bench:reports": "node --expose-gc --import tsx scripts/report-benchmark.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.900.0"

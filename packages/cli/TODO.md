@@ -50,6 +50,10 @@ Scope: the free local CLI. Hosted accounts, billing submission, alerts, and hard
 - [x] Add OS-specific Node installation, source ZIP setup, and common error fixes; include the guide in tarballs and source exports.
 - [x] Add inventory file/row cursors to skip parsing completed files on resume; keep legacy cursor support and file-change checks.
 
+- [x] Stream CSV/JSON scan reports in bounded output batches, preserve formatting, and respect slow readers.
+- [x] Cancel blocked report output on interruption after releasing checkpoint locks; test broken pipes and atomic export failures.
+- [x] Add report memory benchmarks with byte/hash checks against full-string rendering.
+
 ## External checks
 
 - [ ] Run the live S3 scenario with a disposable unversioned bucket and credentials.
@@ -64,6 +68,6 @@ Scope: the free local CLI. Hosted accounts, billing submission, alerts, and hard
 ## Later scaling work
 
 - [ ] Replace full-map copies and full checkpoint rewrites when measured tenant counts require it.
-- [ ] Stream report output for workloads whose tenant population exceeds available memory.
+- [ ] Add disk-backed tenant totals and external sorting for populations that exceed available memory.
 
 These scaling items need a storage/checkpoint format design and migration tests; they are not claimed complete. Current bounds and measured improvements are in ../../docs/PERFORMANCE.md. Live cloud checks remain open because this environment has no AWS/R2 credentials.

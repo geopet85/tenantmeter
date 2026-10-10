@@ -1,4 +1,4 @@
-import { access, link, open, rm } from 'node:fs/promises';
+import { access, open, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline/promises';
@@ -9,7 +9,8 @@ import { newState } from './model.ts';
 import { createSource } from './source.ts';
 import { scan, tenantFor } from './scan.ts';
 import { diffStates, renderDiff } from './diff.ts';
-import { render } from './report.ts';
+import { renderChunks } from './report.ts';
+import { exportFile, writeOutput, type Content } from './output.ts';
 import { prepareInventory } from './inventory.ts';
 import { compareCounters, renderComparison } from './compare.ts';
 
@@ -22,18 +23,30 @@ async function ensureNew(path: string) {
   } throw error; }
   throw new Error(`File already exists: ${path}. Choose a new path.`);
 }
-async function exportFile(path: string, content: string) {
-  const temp = `${path}.${randomUUID()}.tmp`;
+class OutputInterruptedError extends Error {
+  constructor(readonly forceExit: boolean) { super('Report output interrupted.'); this.name = 'AbortError'; }
+}
+async function emit(content: Content, path?: string) {
+  // Output has its own signal: an interrupted scan still needs to print its
+  // partial report, while a later interrupt must stop a stalled report write.
+  const controller = new AbortController();
+  const interrupt = () => controller.abort();
+  process.on('SIGINT', interrupt);
+  process.on('SIGTERM', interrupt);
   try {
-    const file = await open(temp, 'wx', 0o600);
-    try { await file.writeFile(content); await file.sync(); } finally { await file.close(); }
-    // A hard link publishes atomically and refuses to overwrite an existing report.
-    await link(temp, path);
-  } finally { await rm(temp, { force: true }); }
+    if (path) await exportFile(path, content, controller.signal);
+    else await writeOutput(content, process.stdout, controller.signal);
+  } catch (error) {
+    if (controller.signal.aborted) throw new OutputInterruptedError(!path);
+    throw error;
+  } finally {
+    process.off('SIGINT', interrupt);
+    process.off('SIGTERM', interrupt);
+  }
 }
 async function main() {
   const opts = options(process.argv.slice(2));
-  if (opts.early !== undefined) { process.stdout.write(opts.early); return; }
+  if (opts.early !== undefined) { await emit(opts.early); return; }
   if (opts.command === 'diff') {
     const paths = [resolve(opts.before!), resolve(opts.after!)];
     const [before, after] = await Promise.all(paths.map(loadState));
@@ -43,8 +56,8 @@ async function main() {
     if (opts.output) {
       const output = resolve(opts.output);
       if (paths.some(path => output === path || output === `${path}.lock`)) throw new Error('Diff output must differ from its checkpoint and lock paths.');
-      await exportFile(output, content); process.stderr.write(`Report: ${output}\n`);
-    } else process.stdout.write(content);
+      await emit(content, output); process.stderr.write(`Report: ${output}\n`);
+    } else await emit(content);
     process.exitCode = result.hasDifferences ? 3 : 0;
     return;
   }
@@ -53,13 +66,13 @@ async function main() {
     const state = await loadState(path);
     validateConfig(state.config);
     const comparison = opts.command === 'compare' ? await compareCounters(state, opts.counters!) : undefined;
-    const content = comparison ? renderComparison(comparison, opts.format, opts.top) : render(state, opts.format, opts.top);
+    const content = comparison ? renderComparison(comparison, opts.format, opts.top) : renderChunks(state, opts.format, opts.top);
     if (opts.output) {
       const output = resolve(opts.output);
       if (output === path || output === `${path}.lock`) throw new Error('Report output must differ from checkpoint and lock paths.');
-      await exportFile(output, content);
+      await emit(content, output);
       process.stderr.write(`Report: ${output}\n`);
-    } else process.stdout.write(content);
+    } else await emit(content);
     process.exitCode = comparison ? comparison.different ? 3 : 0 : state.status === 'complete' ? 0 : state.reason === 'interrupted' ? 130 : 2;
     return;
   }
@@ -131,9 +144,9 @@ async function main() {
       }
     });
     clearTimeout(timer);
-    const content = render(state, opts.format, opts.top);
-    if (outputPath) { await exportFile(outputPath, content); log(`Report: ${outputPath}`); }
-    else process.stdout.write(content);
+    const content = renderChunks(state, opts.format, opts.top);
+    if (outputPath) { await emit(content, outputPath); log(`Report: ${outputPath}`); }
+    else await emit(content);
     if (state.status === 'partial') {
       log(`Partial report (${state.reason}). Resume with --resume and the checkpoint path above. Increase the reached limit.`);
       process.exitCode = state.reason === 'interrupted' ? 130 : 2;
@@ -153,6 +166,10 @@ async function main() {
 }
 
 main().catch(error => {
+  // Node cannot cancel a pending stdio pipe write by destroying stdout. Exit
+  // only here, after main's finally has closed sources and released locks.
+  if (error instanceof OutputInterruptedError && error.forceExit) process.exit(130);
+  if (error?.code === 'EPIPE') { process.exitCode = 0; return; }
   let message: string;
   if (error?.$metadata || error?.name === 'CredentialsProviderError') {
     const name = error?.name;
@@ -165,7 +182,5 @@ main().catch(error => {
   process.stderr.write(`TenantMeter: ${message}\n`);
   process.exitCode = error?.name === 'AbortError' ? 130 : 1;
 });
-process.stdout.on('error', error => {
-  if ((error as NodeJS.ErrnoException).code === 'EPIPE') process.exit(0);
-  else throw error;
-});
+// Output writes are awaited; their errors are handled by main after cleanup.
+process.stdout.on('error', () => {});
