@@ -1,0 +1,5 @@
+Bucket,Key,Size
+example-bucket,customers%2Facme%2Fa.txt,15
+example-bucket,customers%2F%E6%9D%B1%E4%BA%AC%2Fb.txt,7
+example-bucket,customers%2Fnew%2Fempty,0
+example-bucket,system%2Flog,5

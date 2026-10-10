@@ -235,3 +235,18 @@ test('request limit includes saved progress and runtime abort keeps an uncommitt
   const stopped = await scan({ state: newState(config), source, maxObjects: Infinity, signal: controller.signal, save: async () => {} });
   assert.equal(stopped.reason, 'time-limit'); assert.equal(stopped.objects, 0);
 });
+
+test('page aggregation shares untouched values without mutating prior totals or config', () => {
+  const before = applyPage(newState(config), {objects: [{key: 'customers/a/x', bytes: 2}, {key: 'customers/b/x', bytes: 3}], nextCursor: 'next'});
+  const snapshot = JSON.stringify(before);
+  const next = applyPage(before, {objects: [{key: 'customers/a/y', bytes: 4}], nextCursor: null});
+  assert.equal(JSON.stringify(before), snapshot);
+  assert.equal(next.tenants.a.bytes, '6'); assert.notEqual(next.tenants.a, before.tenants.a);
+  assert.equal(next.tenants.b, before.tenants.b); assert.equal(next.config, before.config);
+});
+test('multi-page cursor cycles fail before duplicate objects are committed', async () => {
+  let saved = newState(config), calls = 0;
+  const source: Source = {close() {}, async page() { const cursor = ['a','b','a'][calls++]; return {objects: [{key: 'customers/a/x', bytes: 1}], nextCursor: cursor}; }};
+  await assert.rejects(scan({state: saved, source, maxObjects: Infinity, signal: new AbortController().signal, save: async state => {saved = state;}}), /repeated cursor/);
+  assert.equal(saved.objects, 2); assert.equal(saved.cursor, 'b');
+});

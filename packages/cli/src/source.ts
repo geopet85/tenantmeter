@@ -45,7 +45,7 @@ export async function createSource(config: Config, sdkOptions: Pick<S3ClientConf
     async page(cursor, maxKeys, signal) {
       const response = await client.send(new ListObjectsV2Command({
         Bucket: config.bucket, Prefix: config.prefix || undefined,
-        ContinuationToken: cursor ?? undefined, MaxKeys: maxKeys
+        ContinuationToken: cursor ?? undefined, MaxKeys: maxKeys, EncodingType: 'url'
       }), { abortSignal: signal });
       if (response.IsTruncated && !response.NextContinuationToken) {
         throw new Error('Provider returned a truncated page without a continuation token.');
@@ -53,7 +53,12 @@ export async function createSource(config: Config, sdkOptions: Pick<S3ClientConf
       return {
         objects: (response.Contents ?? []).map(x => {
           if (x.Key === undefined || x.Size === undefined) throw new Error('Provider omitted an object key or size.');
-          return { key: x.Key, bytes: x.Size };
+          let key = x.Key;
+          if (response.EncodingType === 'url') {
+            try { key = decodeURIComponent(key); }
+            catch { throw new Error('Provider returned an invalid URL-encoded object key.'); }
+          }
+          return { key, bytes: x.Size };
         }),
         nextCursor: response.IsTruncated ? response.NextContinuationToken! : null
       };

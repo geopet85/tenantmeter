@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "bucket": "example-bucket",
   "prefix": "",
-  "scanStartedAt": "2026-10-10T12:57:42.381Z",
-  "scanFinishedAt": "2026-10-10T12:57:42.411Z",
+  "scanStartedAt": "2026-10-10T13:19:19.673Z",
+  "scanFinishedAt": "2026-10-10T13:19:19.701Z",
   "different": 1,
   "unmatched": {
     "bytes": "3",

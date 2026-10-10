@@ -27,6 +27,13 @@ try {
   assert.equal(JSON.parse(report).total.bytes, '33');
   await writeFile(join(directory, 'inventory-report.json'), report);
   await writeFile(join(directory, 'comparison.json'), run(['compare', '--state', inventoryState, '--counters', join(directory, 'counters.csv'), '--format', 'json'], 3));
+  const afterInput = join(directory, 'inventory-after.csv');
+  await writeFile(afterInput, 'Bucket,Key,Size\nexample-bucket,customers%2Facme%2Fa.txt,15\nexample-bucket,customers%2F%E6%9D%B1%E4%BA%AC%2Fb.txt,7\nexample-bucket,customers%2Fnew%2Fempty,0\nexample-bucket,system%2Flog,5\n');
+  const afterState = join(temp, 'after.json');
+  run(['inventory', '--input', afterInput, '--bucket', 'example-bucket', '--pattern', 'customers/{tenant_id}/*', '--yes', '--state', afterState]);
+  const diff = run(['diff', '--before', inventoryState, '--after', afterState, '--format', 'json'], 3);
+  assert.equal(JSON.parse(diff).total.deltaBytes, '-6');
+  await writeFile(join(directory, 'diff.json'), diff);
   const root = join(directory, 'manifest'); await mkdir(join(root, 'data'), {recursive: true});
   const data = gzipSync(rows); const md5 = bytes => createHash('md5').update(bytes).digest('hex');
   await writeFile(join(root, 'data/part.csv.gz'), data);
@@ -35,5 +42,5 @@ try {
   const fromManifest = JSON.parse(run(['inventory', '--manifest', join(root, 'manifest.json'), '--inventory-root', root, '--pattern', 'customers/{tenant_id}/*', '--yes', '--state', join(temp, 'manifest.json'), '--format', 'json']));
   assert.equal(fromManifest.total.bytes, '33');
   await writeFile(join(directory, 'schedule.json'), JSON.stringify({outputDir: './scheduled-reports', args: ['demo', '--max-requests', '10', '--max-seconds', '300']}, null, 2) + '\n');
-  console.log('Generated and checked demo, inventory, comparison, manifest and schedule examples.');
+  console.log('Generated and checked demo, inventory, comparison, diff, manifest and schedule examples.');
 } finally { await rm(temp, {recursive: true, force: true}); }

@@ -6,6 +6,8 @@ import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { csvRows, columns, decimalBytes } from './csv.ts';
 import type { Config, ObjectRow, Source } from './model.ts';
 
+const preparedConfigurations = new WeakSet<Config>();
+
 export async function fileHashes(path: string, signal?: AbortSignal) {
   const sha256 = createHash('sha256');
   const md5 = createHash('md5');
@@ -13,6 +15,7 @@ export async function fileHashes(path: string, signal?: AbortSignal) {
   for await (const chunk of input) { sha256.update(chunk); md5.update(chunk); }
   return { sha256: sha256.digest('hex'), md5: md5.digest('hex') };
 }
+function indexColumns(names: string[]) { return Object.fromEntries(names.map((name, index) => [name, index])); }
 function schema(value: string | string[]) {
   const names = columns(value);
   if (!['Bucket', 'Key', 'Size'].every(x => names.includes(x))) throw new Error('Inventory columns must include Bucket, Key, and Size.');
@@ -71,7 +74,9 @@ export async function prepareInventory(config: Config, options: {
     if (file.md5 && hashes.md5 !== file.md5) throw new Error('Inventory file MD5 checksum does not match the manifest.');
     files.push({ path: file.path, sha256: hashes.sha256 });
   }
-  return { ...config, bucket, inventory: { files, columns: names, encodedKeys: !options.rawKeys, createdAt } };
+  const prepared = { ...config, bucket, inventory: { files, columns: names, encodedKeys: !options.rawKeys, createdAt } };
+  preparedConfigurations.add(prepared);
+  return prepared;
 }
 
 async function* objects(config: Config, signal: AbortSignal): AsyncGenerator<ObjectRow> {
@@ -84,15 +89,16 @@ async function* objects(config: Config, signal: AbortSignal): AsyncGenerator<Obj
     if (gzip) input.on('error', error => gzip.destroy(error));
     const stream = gzip ? input.pipe(gzip) : input;
     let names = inventory.columns;
+    let indices = names ? indexColumns(names) : undefined;
     try {
       for await (const row of csvRows(stream)) {
         signal.throwIfAborted();
-        if (!names) { names = schema(row); continue; }
+        if (!names) { names = schema(row); indices = indexColumns(names); continue; }
         if (row.length !== names.length) throw new Error('Inventory row has the wrong number of columns.');
-        const value = (name: string) => row[names!.indexOf(name)];
-        if (names.includes('IsLatest') && !['true', 'false'].includes(value('IsLatest'))) throw new Error('Invalid IsLatest value in inventory.');
-        if (names.includes('IsDeleteMarker') && !['true', 'false'].includes(value('IsDeleteMarker'))) throw new Error('Invalid IsDeleteMarker value in inventory.');
-        if ((names.includes('IsLatest') && value('IsLatest') !== 'true') || (names.includes('IsDeleteMarker') && value('IsDeleteMarker') === 'true')) continue;
+        const value = (name: string) => row[indices![name]];
+        if (Object.hasOwn(indices!, 'IsLatest') && !['true', 'false'].includes(value('IsLatest'))) throw new Error('Invalid IsLatest value in inventory.');
+        if (Object.hasOwn(indices!, 'IsDeleteMarker') && !['true', 'false'].includes(value('IsDeleteMarker'))) throw new Error('Invalid IsDeleteMarker value in inventory.');
+        if ((Object.hasOwn(indices!, 'IsLatest') && value('IsLatest') !== 'true') || (Object.hasOwn(indices!, 'IsDeleteMarker') && value('IsDeleteMarker') === 'true')) continue;
         if (value('Bucket') !== config.bucket) continue;
         let key = value('Key');
         if (inventory.encodedKeys) {
@@ -110,7 +116,9 @@ async function* objects(config: Config, signal: AbortSignal): AsyncGenerator<Obj
 
 export async function inventorySource(config: Config, signal?: AbortSignal): Promise<Source> {
   if (!config.inventory?.files.length) throw new Error('Inventory checkpoint has no files.');
-  for (const file of config.inventory.files) {
+  // Only skip the duplicate preflight for this process's just-prepared configuration.
+  // Loaded/resumed checkpoints must rehash all files before accepting any saved totals.
+  if (!preparedConfigurations.delete(config)) for (const file of config.inventory.files) {
     if ((await fileHashes(file.path, signal)).sha256 !== file.sha256) throw new Error('Inventory file changed since this scan started. Start a new scan.');
   }
   let iterator: AsyncGenerator<ObjectRow> | undefined;

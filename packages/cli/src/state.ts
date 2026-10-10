@@ -1,14 +1,27 @@
-import { mkdir, open, readFile, rename, rm } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { lstat, mkdir, open, readFile, realpath, rename, rm } from 'node:fs/promises';
+import { basename, dirname, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { State, Totals } from './model.ts';
 
+async function checkpointPath(path: string) {
+  const absolute = resolve(path);
+  await mkdir(dirname(absolute), { recursive: true, mode: 0o700 });
+  const canonical = join(await realpath(dirname(absolute)), basename(absolute));
+  try {
+    const entry = await lstat(canonical);
+    if (!entry.isFile() || entry.nlink !== 1) throw new Error('Checkpoint must be a regular file without symbolic or hard links. Use its original path or a new file.');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+  return canonical;
+}
+
 export async function saveState(path: string, state: State) {
-  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  path = await checkpointPath(path);
   const temp = `${path}.${randomUUID()}.tmp`;
   try {
     const file = await open(temp, 'wx', 0o600);
-    try { await file.writeFile(JSON.stringify(state, null, 2) + '\n'); await file.sync(); }
+    try { await file.writeFile(JSON.stringify(state) + '\n'); await file.sync(); }
     finally { await file.close(); }
     await rename(temp, path);
   } finally { await rm(temp, { force: true }); }
@@ -55,8 +68,10 @@ export async function loadState(path: string): Promise<State> {
 }
 
 export async function lockState(path: string) {
-  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  path = await checkpointPath(path);
   const lock = `${path}.lock`;
+  const token = randomUUID();
+  const record = JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString(), token });
   let file;
   try { file = await open(lock, 'wx', 0o600); }
   catch (error) {
@@ -65,8 +80,20 @@ export async function lockState(path: string) {
     }
     throw error;
   }
-  try { await file.writeFile(JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() })); }
+  try { await file.writeFile(record); }
   catch (error) { await file.close(); await rm(lock, { force: true }); throw error; }
   await file.close();
-  return async () => { await rm(lock, { force: true }); };
+  let released = false;
+  return async () => {
+    if (released) return;
+    released = true;
+    try {
+      // A user may remove a stale lock while an old process is still exiting.
+      // That process must not remove the replacement lock.
+      const current = await readFile(lock, 'utf8');
+      if (current === record) await rm(lock, { force: true });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+  };
 }

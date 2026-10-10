@@ -1,7 +1,7 @@
 TenantMeter — COMPLETE (complete)
 Bucket: "demo-bucket" | Prefix: ""
 Pattern: "customers/{tenant_id}/*"
-Started: 2026-10-10T12:57:41.757Z | Finished: 2026-10-10T12:57:41.838Z
+Started: 2026-10-10T13:19:18.835Z | Finished: 2026-10-10T13:19:18.929Z
 Scanned: 2,505 objects | 5.12 GiB | 3 pages
 
 Customer                         Storage          Files

@@ -24,3 +24,23 @@ test('regex punctuation is literal and the whole key must match',()=>{
   assert.equal(extractTenantId('customers/{tenant_id}/file', 'customers/acme/file-more'), null);
   assert.throws(()=>compileTenantPattern('{tenant_id}/{tenant_id}/*'));
 });
+
+test('requires exact end of key, including a final newline', () => {
+  assert.equal(extractTenantId('customers/{tenant_id}/file', 'customers/acme/file\n'), null);
+  assert.equal(extractTenantId('customers/{tenant_id}/*', 'customers/acme/file\n'), 'acme');
+});
+test('rejects ambiguous wildcard capture and supports literal affixes', () => {
+  assert.throws(() => compileTenantPattern('*{tenant_id}/*'), /share a path segment/);
+  assert.throws(() => compileTenantPattern('customers/{tenant_id}*/*'), /share a path segment/);
+  assert.equal(extractTenantId('customers/account-{tenant_id}.prod/*', 'customers/account-acme.prod/a'), 'acme');
+  assert.equal(extractTenantId('*/customers/{tenant_id}/*', 'prod/customers/acme/a'), 'acme');
+});
+test('adversarial wildcard patterns have bounded matching work', () => {
+  const pattern = '*a'.repeat(20) + '/customers/{tenant_id}/x';
+  assert.equal(extractTenantId(pattern, 'a'.repeat(70) + '/customers/acme/y'), null);
+  assert.equal(extractTenantId(pattern, 'a'.repeat(70) + '/customers/acme/x'), 'acme');
+});
+test('leading slash and oversized keys terminate safely', () => {
+  assert.equal(extractTenantId('*/{tenant_id}/*', '/a'), null);
+  assert.equal(extractTenantId('{tenant_id}/*', 'a'.repeat(1025) + '/x'), null);
+});

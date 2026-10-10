@@ -30,13 +30,39 @@ Scope: the free local CLI. Hosted accounts, billing submission, alerts, and hard
 - [x] Configure CI for Linux, macOS, and Windows with Node 22 and 24.
 - [x] Add tests for the new commands, limits, errors, and file handling.
 
+## Review and efficiency work
+
+- [x] Replace backtracking regex matching and fix final-newline matching.
+- [x] Reject wildcards sharing the tenant path segment.
+- [x] Request XML-safe S3 keys and decode once.
+- [x] Prevent checkpoint lock bypass through directory aliases and linked files.
+- [x] Preserve replacement locks and scheduler termination codes.
+- [x] Enforce runtime limits during inventory preparation.
+- [x] Remove duplicate fresh-inventory preflight hashing and repeated column searches.
+- [x] Aggregate page deltas and copy only changed totals.
+- [x] Write compact checkpoints and add a reproducible aggregation benchmark.
+- [x] Detect continuation-token cycles within a run.
+- [x] Compare completed checkpoints with JSON/CSV/table output.
+- [x] Generate realistic synthetic data and independent expected/actual outcome files.
+- [x] Add bounded AWS scenario upload and exact-key cleanup helpers with tests.
+- [x] Expand prerequisites and commands across root, package, scenario, and contributor docs.
+- [x] Add public repository, issue, and homepage links to package metadata.
+
 ## External checks
 
-- [ ] Run the live S3 test with a disposable bucket and credentials.
+- [ ] Run the live S3 scenario with a disposable unversioned bucket and credentials.
 - [ ] Run the live R2 test with a disposable bucket and credentials.
-- [ ] Run the CI matrix on GitHub.
-- [ ] Run the dependency audit with registry access.
-- [ ] Set an owned npm scope, repository URLs, and private security-reporting contact.
-- [ ] Publish the reviewed source and npm package.
+- [x] Verify the initial GitHub matrix on all six OS/Node combinations (commit 19b5eb4).
+- [x] Run full and production dependency audits: zero vulnerabilities on 2026-10-10.
+- [ ] Run the CI matrix for the current changes before release.
+- [ ] Confirm npm scope ownership and configure a private security-reporting contact.
+- [x] Publish the reviewed source at github.com/geopet85/tenantmeter.
+- [ ] Publish the npm package after release checks.
 
-Local verification: typecheck, build, unit/CLI tests, generated examples, source export, and installed tarball checks on macOS with Node 22. External checks above remain open; CI configuration and skipped live tests are not passing results.
+## Later scaling work
+
+- [ ] Replace full-map copies and full checkpoint rewrites when measured tenant counts require it.
+- [ ] Add inventory file/row cursors to avoid rereading completed files on resume.
+- [ ] Stream report output for workloads whose tenant population exceeds available memory.
+
+These scaling items need a storage/checkpoint format design and migration tests; they are not claimed complete. Current bounds and measured improvements are in ../../docs/PERFORMANCE.md. Live cloud checks remain open because this environment has no AWS/R2 credentials.

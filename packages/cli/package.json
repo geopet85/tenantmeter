@@ -29,7 +29,8 @@
     "prepack": "npm run build",
     "package:check": "npm run build && node scripts/package-check.mjs",
     "examples:generate": "npm run build && node scripts/examples.mjs",
-    "test:live": "node --import tsx --test tests/live/provider.test.ts"
+    "test:live": "node --import tsx --test tests/live/provider.test.ts",
+    "bench": "node --expose-gc --import tsx scripts/benchmark.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.900.0"
@@ -39,5 +40,13 @@
     "esbuild": "^0.25.0",
     "tsx": "^4.20.0",
     "typescript": "^5.8.3"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/geopet85/tenantmeter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/geopet85/tenantmeter/issues"
+  },
+  "homepage": "https://github.com/geopet85/tenantmeter#readme"
 }

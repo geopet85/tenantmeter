@@ -4,25 +4,28 @@ The technical checklist is [packages/cli/TODO.md](../packages/cli/TODO.md). Setu
 
 ## Local checks
 
-Run with Node.js 22+ from `packages/cli`:
+Prerequisites: Node.js 22+, npm, a source checkout, and npm registry access for the first install and dependency audit. Git is optional for a downloaded archive. Offline tests, demo, packaging checks, examples, and benchmarks need no cloud credentials. Run from `packages/cli`:
 
 ```sh
 npm ci
 npm run check
 npm run package:check
 npm run examples:generate
+npm run bench
 npm audit --omit=dev
 ```
 
-`check` typechecks, tests, and builds. `package:check` checks allowed tarball files, installs locked production dependencies and the tarball into a fresh temporary directory, then verifies demo totals. `examples:generate` runs the documented fake inventory/manifest/comparison commands and checks their totals.
+`check` typechecks, tests, and builds. `package:check` checks allowed tarball files, installs locked production dependencies and the tarball into a fresh temporary directory, then verifies demo totals. `examples:generate` runs the documented fake inventory/manifest/comparison/diff commands and checks their totals.
 
-The configured GitHub matrix covers Linux, macOS, and Windows with Node 22 and 24. Run it before release; local macOS/Node 22 checks do not establish that the other jobs pass. Dependency auditing in this workspace failed because registry DNS was unavailable. Live provider tests have not run here.
+`bench` measures local aggregation only. See [PERFORMANCE.md](PERFORMANCE.md) for workload details. The [scenario helper](examples/scenario/README.md) checks known quantities offline and provides separate cloud upload, verification, and cleanup steps.
+
+The configured GitHub matrix covers Linux, macOS, and Windows with Node 22 and 24. Run it before release; local macOS/Node 22 checks do not establish that the other jobs pass. The initial public run for commit `19b5eb4` passed all six jobs. The current changes still need their own run. Both full and production-only dependency audits reported zero vulnerabilities on 2026-10-10. Live provider tests have not run here.
 
 ## Live provider tests
 
 Use an existing disposable bucket. The opt-in test creates 1,005 small objects under a unique `tenantmeter-cli-test/UUID/` prefix, verifies known totals, pagination, resume, prefix filtering, unmatched objects, and offline export, then deletes the attempted fixture keys. It does not create or delete buckets. Failed cleanup may leave fixtures; inspect that test prefix. Use a bucket without versioning/object lock so fixture deletion is effective. Listing, writes, deletes, and retained versions may incur provider charges.
 
-The test needs listing, upload, and deletion permissions. The distributed CLI still only lists metadata. Configure the same credentials described in the README, then build and run:
+The test needs listing, upload, and deletion permissions. The distributed CLI still only lists metadata. For AWS, use an existing profile/SSO session, environment credentials, or an IAM role; AWS CLI is only needed if your authentication flow uses it. For R2, provide the account ID and bucket-scoped S3 credentials. Configure the credentials described in the [CLI README](../packages/cli/README.md), then build and run:
 
 ```sh
 npm run build
@@ -59,17 +62,17 @@ The export includes source, tests, scripts, helpers, fixtures, license, CI, and 
 
 ## Publication
 
-1. Choose an owned npm scope and public repository.
-2. Set the actual package name, `repository`, `bugs`, and `homepage` in `packages/cli/package.json`. Run `npm install --package-lock-only` afterward. If renaming, update global-install examples too.
+1. Verify ownership of the intended npm scope. The source repository is [geopet85/tenantmeter](https://github.com/geopet85/tenantmeter).
+2. Set the actual package name; repository/issue/homepage URLs already point to this repository. Verify those links in `packages/cli/package.json`. Run `npm install --package-lock-only` afterward. If renaming, update global-install examples too.
 3. Configure GitHub private vulnerability reporting or a monitored security contact. Update `SECURITY.md`.
 4. Run local checks, audit, live tests, and the GitHub matrix. Review the checklist and generated tarball.
-5. Publish only the reviewed source export. Its MIT license covers the CLI and bundled shared parser; it does not relicense the hosted application.
+5. Review the source export if publishing a separate copy. Its MIT license covers the CLI and bundled shared helpers. Keep credentials, reports, checkpoints, and filled outreach files out of public commits.
 6. Run `npm pack`, inspect the tarball, and install it on a second machine.
 7. Authenticate to npm and intentionally run `npm publish --access public` from `packages/cli`.
-8. Update the launch guide with real repository and issue links.
+8. Update install instructions with the verified npm package name and release version. Keep repository and issue links current.
 
-Publication is not automated. This workspace has not published the source or package.
+Source is already public on GitHub. The npm package is not published. Publication is not automated.
 
 ## After release
 
-Follow [CLI_LAUNCH_GUIDE.md](CLI_LAUNCH_GUIDE.md). Prioritize failed installs and incorrect totals. Record voluntary successful scans and repeated use; stars and downloads do not prove demand. Validate payment for recurring reports before adding hosted accounts, scheduling, or billing submission.
+Follow [CLI_LAUNCH_GUIDE.md](CLI_LAUNCH_GUIDE.md). Prioritize failed installs and incorrect totals. Record voluntary successful scans and repeated use; stars and downloads do not prove demand. Validate payment for recurring reports before adding hosted accounts, managed scheduling, or billing submission.

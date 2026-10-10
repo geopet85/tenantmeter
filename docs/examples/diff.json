@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "provider": "inventory",
+    "bucket": "example-bucket",
+    "prefix": "",
+    "pattern": "customers/{tenant_id}/*"
+  },
+  "beforeStartedAt": "2026-10-10T13:19:19.673Z",
+  "beforeFinishedAt": "2026-10-10T13:19:19.701Z",
+  "afterStartedAt": "2026-10-10T13:19:19.923Z",
+  "afterFinishedAt": "2026-10-10T13:19:19.948Z",
+  "different": 3,
+  "hasDifferences": true,
+  "total": {
+    "beforeBytes": "33",
+    "afterBytes": "27",
+    "deltaBytes": "-6",
+    "beforeObjects": 3,
+    "afterObjects": 4,
+    "deltaObjects": 1
+  },
+  "unmatched": {
+    "beforeBytes": "3",
+    "afterBytes": "5",
+    "deltaBytes": "2",
+    "beforeObjects": 1,
+    "afterObjects": 1,
+    "deltaObjects": 0
+  },
+  "rows": [
+    {
+      "tenantId": "東京",
+      "status": "changed",
+      "beforeBytes": "20",
+      "afterBytes": "7",
+      "deltaBytes": "-13",
+      "beforeObjects": 1,
+      "afterObjects": 1,
+      "deltaObjects": 0
+    },
+    {
+      "tenantId": "acme",
+      "status": "changed",
+      "beforeBytes": "10",
+      "afterBytes": "15",
+      "deltaBytes": "5",
+      "beforeObjects": 1,
+      "afterObjects": 1,
+      "deltaObjects": 0
+    },
+    {
+      "tenantId": "new",
+      "status": "added",
+      "beforeBytes": "0",
+      "afterBytes": "0",
+      "deltaBytes": "0",
+      "beforeObjects": 0,
+      "afterObjects": 1,
+      "deltaObjects": 1
+    }
+  ],
+  "note": "Delta is after minus before. Same usage does not prove objects are unchanged. Scans measure current versions over their stated windows; changes between scans are not time-weighted billing."
+}

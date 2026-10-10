@@ -8,3 +8,15 @@ coverage
 .tenantmeter-state/
 packages/cli/dist/
 *.tgz
+
+# Private scan checkpoints, local reports, and synthetic cloud-run ledgers
+*-state.json
+*.state.json
+trial-report.json
+usage.json
+usage.csv
+upload.jsonl
+operation.lock
+cleanup.json
+aws-actual.json
+aws-outcome.json

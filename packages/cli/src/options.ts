@@ -12,6 +12,7 @@ Usage:
   tenantmeter inventory --input FILE --bucket NAME --pattern PATTERN [options]
   tenantmeter inventory --manifest FILE --inventory-root DIR --pattern PATTERN [options]
   tenantmeter compare --state STATE_FILE --counters FILE [--format table|json|csv]
+  tenantmeter diff --before STATE_FILE --after STATE_FILE [--format table|json|csv]
 
 Options:
   --provider s3|r2         Storage provider
@@ -38,6 +39,8 @@ Options:
   --columns LIST           Comma-separated columns for a headerless inventory
   --raw-keys               Do not URL-decode inventory keys
   --counters FILE          Compare against CSV with tenant_id,bytes columns
+  --before FILE            Earlier complete checkpoint for diff
+  --after FILE             Later complete checkpoint for diff
   --help                   Show help
   --version                Show version
 
@@ -79,18 +82,20 @@ export function options(args: string[]) {
     state: { type: 'string' }, resume: { type: 'string' }, format: { type: 'string' },
     output: { type: 'string' }, top: { type: 'string' }, all: { type: 'boolean' },
     yes: { type: 'boolean' }, help: { type: 'boolean' }, version: { type: 'boolean' },
+    before: { type: 'string' }, after: { type: 'string' },
     input: { type: 'string' }, manifest: { type: 'string' }, 'inventory-root': { type: 'string' },
     columns: { type: 'string' }, 'raw-keys': { type: 'boolean' }, counters: { type: 'string' }
   } });
   if (values.help || values.version || args.length === 0) return { early: values.version ? '0.1.0\n' : help } as const;
   const command = positionals[0];
-  if (positionals.length !== 1 || !['demo', 'analyze', 'report', 'inventory', 'compare'].includes(command)) throw new Error('Choose analyze, demo, inventory, report, or compare. Run tenantmeter --help.');
+  if (positionals.length !== 1 || !['demo', 'analyze', 'report', 'inventory', 'compare', 'diff'].includes(command)) throw new Error('Choose analyze, demo, inventory, report, compare, or diff. Run tenantmeter --help.');
   const allowed: Record<string, Set<string>> = {
     demo: new Set(['state', 'resume', 'max-objects', 'max-requests', 'max-seconds', 'all', 'estimate-objects', 'format', 'output', 'top', 'yes']),
     analyze: new Set(['provider', 'bucket', 'pattern', 'region', 'account-id', 'jurisdiction', 'prefix', 'state', 'resume', 'max-objects', 'max-requests', 'max-seconds', 'all', 'estimate-objects', 'format', 'output', 'top', 'yes']),
     inventory: new Set(['input', 'manifest', 'inventory-root', 'columns', 'raw-keys', 'bucket', 'pattern', 'prefix', 'state', 'resume', 'max-objects', 'max-requests', 'max-seconds', 'all', 'format', 'output', 'top', 'yes']),
     report: new Set(['state', 'format', 'output', 'top']),
-    compare: new Set(['state', 'counters', 'format', 'output', 'top'])
+    compare: new Set(['state', 'counters', 'format', 'output', 'top']),
+    diff: new Set(['before', 'after', 'format', 'output', 'top'])
   };
   for (const key of Object.keys(values)) if (!allowed[command].has(key)) throw new Error(`--${key} is not supported by ${command}.`);
   if (values.all && values['max-objects']) throw new Error('Use --all or --max-objects, not both.');
@@ -98,6 +103,7 @@ export function options(args: string[]) {
   const configKeys = ['provider', 'bucket', 'pattern', 'region', 'account-id', 'jurisdiction', 'prefix'] as const;
   if ((command === 'report' || command === 'compare') && !values.state) throw new Error(`${command} requires --state PATH.`);
   if (command === 'compare' && !values.counters) throw new Error('Compare requires --counters FILE.');
+  if (command === 'diff' && (!values.before || !values.after)) throw new Error('Diff requires --before FILE and --after FILE.');
   if (values.resume && configKeys.some(key => values[key] !== undefined)) throw new Error('Resume uses the saved connection and pattern. Remove connection options.');
   if (command === 'demo' && configKeys.some(key => values[key] !== undefined)) throw new Error('Demo uses its own fake bucket and pattern.');
   const inventoryKeys = ['input', 'manifest', 'inventory-root', 'columns', 'raw-keys'] as const;
@@ -110,7 +116,7 @@ export function options(args: string[]) {
   if (positive(values['max-seconds'], '--max-seconds', 0) > 2_147_483) throw new Error('--max-seconds must not exceed 2147483.');
   const format = values.format ?? 'table';
   if (!['table', 'json', 'csv'].includes(format)) throw new Error('--format must be table, json, or csv.');
-  const config: Config | undefined = values.resume || command === 'report' || command === 'compare' ? undefined : validateConfig({
+  const config: Config | undefined = values.resume || command === 'report' || command === 'compare' || command === 'diff' ? undefined : validateConfig({
     provider: (command === 'demo' ? 'demo' : command === 'inventory' ? 'inventory' : values.provider) as Config['provider'],
     bucket: command === 'demo' ? 'demo-bucket' : values.bucket ?? '',
     pattern: command === 'demo' ? 'customers/{tenant_id}/*' : values.pattern ?? '',
@@ -129,7 +135,7 @@ export function options(args: string[]) {
     estimateObjects: positive(values['estimate-objects'], '--estimate-objects', 0),
     format: format as 'table' | 'json' | 'csv', output: values.output,
     top: positive(values.top, '--top', 20), yes: values.yes ?? command === 'demo',
-    counters: values.counters,
+    counters: values.counters, before: values.before, after: values.after,
     inventoryOptions: { input: values.input, manifest: values.manifest, root: values['inventory-root'], columns: values.columns, rawKeys: values['raw-keys'] }
   };
 }

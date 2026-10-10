@@ -15,4 +15,10 @@
 - Generated fixtures, tarball installation checks, and opt-in live tests.
 - Linux/macOS/Windows CI configuration for Node 22 and 24.
 
-Live provider verification and public publication are still pending.
+- Snapshot comparison with exact byte/object deltas and scope checks.
+- Deterministic wildcard matching, encoded S3 keys, and lock alias protection.
+- Faster page aggregation, compact checkpoints, and fewer inventory hash passes.
+- Reproducible performance benchmark and realistic synthetic AWS scenario.
+- Expanded prerequisites, credentials, commands, and expected outcomes.
+
+Source is public. Live provider verification and npm publication remain pending.

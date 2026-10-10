@@ -2,7 +2,18 @@
 
 Report storage usage per customer in an existing AWS S3 or Cloudflare R2 bucket. Runs locally. No account, telemetry, database, or hosted service required.
 
-Cloud scans only call `ListObjectsV2`. Inventory imports and counter comparisons read local files. It reads keys and sizes, never object payloads, and never uploads or deletes objects. Listing requests can incur provider charges.
+Cloud scans only call `ListObjectsV2`. Inventory imports, counter comparisons, and checkpoint diffs read local files. The CLI reads keys and sizes, never object payloads, and never uploads or deletes objects. Listing requests can incur provider charges. The optional development scenario helper uploads fake fixtures only when explicitly enabled.
+
+## Prerequisites
+
+- Node.js 22 or newer and npm; check `node --version` and `npm --version`.
+- A source checkout or archive to build. Git is optional after downloading the source. The first `npm ci` needs npm registry access.
+- For AWS: an existing bucket, its region, and credentials with `s3:ListBucket`. Use a profile, an SSO session, environment credentials, or an IAM role. AWS CLI is optional; it is needed for the `aws sso login` example below.
+- For R2: an existing bucket, its Cloudflare account ID, and S3 credentials for a bucket-scoped Object Read token. These are not a Cloudflare API bearer token.
+- For inventory: local CSV/CSV.gz files; manifest imports also require the downloaded checksum and every listed file.
+- A key pattern identifying the customer, such as `customers/{tenant_id}/*`, and a prefix if the scan should cover part of the bucket.
+
+No database, Docker, Python, Rust, or hosted application is required. Shell examples use POSIX syntax. On PowerShell, set variables with `$env:NAME='value'`; CLI arguments remain the same.
 
 ## Install from this checkout
 
@@ -24,7 +35,7 @@ tenantmeter --help
 tenantmeter demo
 ```
 
-The provisional package name is `@tenantmeter/cli`; npm ownership and availability have not been verified. Nothing has been published. After publishing under an owned scope, installation becomes `npm install --global @YOUR_SCOPE/cli`.
+The source is public at [geopet85/tenantmeter](https://github.com/geopet85/tenantmeter). The npm package is not published; scope ownership has not been verified. Install the local tarball above. The `tenantmeter` commands below assume that installation; from a source checkout, replace `tenantmeter` with `node dist/tenantmeter.js` while in `packages/cli`.
 
 ## Try without credentials
 
@@ -63,6 +74,8 @@ AWS_PROFILE=YOUR_PROFILE tenantmeter analyze \
 
 Use the bucket's actual region. The fallback is `AWS_REGION`, then `AWS_DEFAULT_REGION`, then `us-east-1`.
 
+For a non-SSO profile, set `AWS_PROFILE` to its existing name. For environment credentials, supply `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN` when credentials are temporary. A configured IAM role needs no key values in CLI arguments. Obtain credentials through your normal AWS login or secret manager; do not paste real keys into committed files or example commands.
+
 Minimum bucket policy permission:
 
 ```json
@@ -84,6 +97,8 @@ Create a bucket-scoped Object Read token following [Cloudflare's instructions](h
 
 Set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` using your shell or secret manager. Avoid putting real secrets in command history or committed files. Optional temporary credentials can also use `R2_SESSION_TOKEN`.
 
+The account ID is the 32-character hexadecimal ID from Cloudflare. The access key and secret come from the R2 token creation screen. In PowerShell, use `$env:R2_ACCOUNT_ID='YOUR_ACCOUNT_ID'` and load the two key variables through your secret manager before running the command.
+
 ```sh
 tenantmeter analyze \
   --provider r2 \
@@ -96,7 +111,7 @@ The account ID can alternatively be supplied with `--account-id`. For a jurisdic
 
 ## Patterns and scan scope
 
-Exactly one `{tenant_id}` token is required. It captures characters within one path segment. `*` matches any characters, including `/`. All other pattern characters are literal. Matching is case-sensitive and covers the whole key.
+Exactly one `{tenant_id}` token is required. It captures characters within one path segment. `*` matches any characters, including `/` and newlines, but may not share a pattern path segment with `{tenant_id}`. Literal affixes are allowed, such as `customers/tenant-{tenant_id}/*`. All other pattern characters are literal. Matching is case-sensitive and covers the whole key.
 
 ```text
 customers/{tenant_id}/*
@@ -132,7 +147,7 @@ tenantmeter analyze --resume trial-state.json --max-objects 10000 --yes
 tenantmeter analyze --resume trial-state.json --all --yes
 ```
 
-`--all` removes only the object limit. Use `--max-requests N` to change the page-call cap. SDK retries are additional HTTP requests; this is not a spending cap. `--max-seconds N` limits the scan phase of this invocation, including preview confirmation. Initial file hashing, configuration, final report writes, and cleanup are outside that timer.
+`--all` removes only the object limit. Use `--max-requests N` to change the page-call cap. SDK retries are additional HTTP requests; this is not a spending cap. `--max-seconds N` covers inventory hashing, source setup, preview confirmation, and scanning. Argument parsing, output preflight, lock acquisition, final report writes, and cleanup are outside that timer. A setup timeout exits 2 without a report. If inventory preparation has not finished, no new checkpoint exists; an existing resume checkpoint is preserved.
 
 `--all` can cause many requests. Optional `--estimate-objects NUMBER` prints an approximate request count based on 1,000 objects per page. This is not bucket discovery or a spending cap: short pages and SDK retries can increase requests. Cloud costs are charged to your provider account. `listingCalls` counts logical SDK calls, not internal HTTP retries.
 
@@ -140,7 +155,7 @@ Press Ctrl-C to stop. A successful page's aggregates and its next cursor are sav
 
 Checkpoint files default to `.tenantmeter-state/`. They contain bucket/configuration metadata, tenant IDs, aggregated usage, and a continuation token. They contain no credentials or raw object list. Files are created with mode `0600`; directory mode `0700` is requested for newly created directories. These modes are subject to operating-system support. Treat checkpoints and reports as private customer metadata.
 
-A `.lock` file prevents concurrent writers to the same checkpoint. Different checkpoint files do not prevent two scans of the same bucket. If a process is killed without cleanup, inspect the PID in the lock file; remove only that `.lock` file after confirming its process is no longer running. Do not edit the checkpoint totals or cursor.
+Directory aliases share the same checkpoint lock. Checkpoint files must be regular files without symbolic or hard links; use the original file or a new path. A `.lock` file prevents concurrent writers to the same checkpoint. Different checkpoint files do not prevent two scans of the same bucket. If a process is killed without cleanup, inspect the PID in the lock file; remove only that `.lock` file after confirming its process is no longer running. Do not edit the checkpoint totals or cursor.
 
 ## Reports and automation
 
@@ -158,11 +173,12 @@ Table output shows the 20 largest customers by default. CSV and JSON contain all
 
 | Exit code | Meaning |
 | --- | --- |
-| 0 | Complete report, equal counters, or help |
+| 0 | Complete report, equal counters/checkpoints, or help |
 | 1 | Invalid input, provider failure, or file error |
-| 2 | Partial report / object, request, or runtime limit reached |
-| 3 | Counter differences |
+| 2 | Object, request, or runtime limit reached; setup timeout may have no report |
+| 3 | Counter or checkpoint differences |
 | 130 | Interrupted scan or exported interrupted checkpoint |
+| 143 | Scheduled child terminated by SIGTERM |
 
 Check the exit code and JSON `status` before using totals. No report is generated on provider failure; use `report --state PATH` to inspect saved progress.
 
@@ -208,6 +224,17 @@ node dist/tenantmeter.js compare --state inventory-state.json \
 
 This fixture exits with code 3: acme is one byte above its counter. Delta is scanned bytes minus counter bytes. JSON byte values and deltas are decimal strings. Missing customers count as differences, including zero-byte customers. Duplicate customer IDs, invalid sizes, and partial scans fail. Unmatched usage is reported separately. Comparison never changes counters. Match bucket scope, versions, and measurement dates before acting on differences.
 
+## Compare two measurements
+
+Keep completed checkpoint files from two runs with the same source, bucket, prefix, and customer mapping:
+
+```sh
+tenantmeter diff --before previous.state.json --after current.state.json --format table
+tenantmeter diff --before previous.state.json --after current.state.json --format json --output changes.json
+```
+
+`diff` reads local checkpoints, not exported report JSON. Partial scans and incompatible scopes fail. Exit 0 means unchanged usage; exit 3 means differences. Deltas are after minus before. JSON includes customer rows, total changes, and unmatched changes. CSV uses `row_type` values `tenant`, `unmatched`, and `total`; filter to `tenant` when importing customer changes. `--top` limits table rows. A difference caused only by unmatched usage can exit 3 with no changed customer rows. A changing bucket can differ because the listing windows differ. A usage difference is not a provider charge or a billing adjustment.
+
 ## Scheduled runs
 
 Copy `../../docs/examples/schedule.json` to a private directory and edit it:
@@ -229,7 +256,7 @@ Run with absolute paths to Node, the wrapper, and config:
 /absolute/path/to/node /absolute/path/to/packages/cli/scripts/scheduled-scan.mjs /absolute/path/to/schedule.json
 ```
 
-For an installed package, locate the wrapper at `$(npm root -g)/@tenantmeter/cli/scripts/scheduled-scan.mjs` on POSIX shells. Paths inside the config are relative to its directory. Arguments are passed directly to the CLI without a shell. The wrapper supplies `--yes`, unique state/report paths, and JSON output. It refuses `--state`, `--resume`, `--output`, and `--format` in the config. An output-directory lock prevents overlapping scheduled runs. Interrupted or failed runs retain their checkpoint; the next scheduled invocation starts a new measurement. Resume an old checkpoint explicitly when needed.
+For an installed package, locate the wrapper at `$(npm root -g)/@tenantmeter/cli/scripts/scheduled-scan.mjs` on POSIX shells. Paths inside the config are relative to its directory. Arguments are passed directly to the CLI without a shell. The only configuration keys are `args` and `outputDir`. The wrapper supplies `--yes`, unique state/report paths, and JSON output. It refuses `--state`, `--resume`, `--output`, `--format`, `--help`, `--version`, and `--` in the config. An output-directory lock prevents overlapping scheduled runs. Interrupted or failed runs retain any checkpoint already written; the next scheduled invocation starts a new measurement. Resume an old checkpoint explicitly when needed.
 
 Cron example (replace every absolute path):
 
@@ -239,7 +266,11 @@ Cron example (replace every absolute path):
 
 For Windows Task Scheduler, set Program to the full `node.exe` path and Arguments to the wrapper path and config path, quoting each path. Enable “Do not start a new instance.” Run under an account with the required credentials. For cron, use an unattended AWS profile/role or a credential manager; an expired interactive SSO session will fail.
 
-The wrapper returns the CLI exit code. Treat 1, 2, and 130 as failed measurements and alert through your existing scheduler or monitoring. Cron alone only records the exit code in the command's result; configure log/error monitoring yourself. Check report `status` before importing quantities. Apply a retention policy to private reports and logs. Remove a stale `.scheduled-scan.lock` only after checking its PID and confirming the process stopped.
+The wrapper returns the CLI exit code; a child killed by SIGTERM returns 143. Treat 1, 2, 130, and 143 as failed measurements and alert through your existing scheduler or monitoring. Cron does not alert on nonzero exit codes by itself; configure log/error monitoring. Check report `status` before importing quantities. Apply a retention policy to private reports and logs. Remove a stale `.scheduled-scan.lock` only after checking its PID and confirming the process stopped.
+
+## Fake-data cloud scenario
+
+The [scenario instructions](../../docs/examples/scenario/README.md) cover prerequisites and commands to plan fake objects, verify them offline, upload to a disposable AWS bucket, verify actual totals, and remove the fixtures. The helper is source-only. Cloud uploads and cleanup require explicit `--allow-writes`; normal CLI scans remain read-only. Plan and offline verification need no credentials. No live AWS scenario has been run in this workspace.
 
 ## Verify and regenerate examples
 
@@ -252,6 +283,10 @@ npm run examples:generate
 `package:check` builds, checks tarball contents, installs the tarball into a fresh temporary directory, and checks demo totals. Add `-- --offline` to use cached npm dependencies. `examples:generate` overwrites only the named fake fixtures and reports under `docs/examples`; generated timestamps change on each run. Technical work and external checks are tracked in [TODO.md](TODO.md).
 
 JSON reports use `schemaVersion: 1`. Checkpoints use `version: 1` and are resume files, not the report API. Report fields include source/scope, timestamps, status/reason, total/matched/unmatched usage, and tenant rows. `pageCalls` counts logical page requests including failed attempts; `listingCalls` is zero for inventory. Neither counts SDK HTTP retries. Treat added report fields as backward-compatible; reject unknown schema versions in your importer. Counter comparison has its own `schemaVersion: 1` with `rows`, `different`, and scan timestamps. See the checked sample JSON files in `docs/examples`.
+
+## Efficiency
+
+Inventory rows are streamed instead of loading the object list. Tenant totals stay in memory. Page updates copy only affected tenant totals; checkpoints still serialize every tenant after each saved page. Listing requests use URL-encoded keys so XML control characters are handled correctly. See [performance checks](../../docs/PERFORMANCE.md) for benchmark commands, measurements, and limits.
 
 ## Measurement limits
 
@@ -282,4 +317,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md). In the fu
 
 ## License
 
-MIT for the CLI package and the shared tenant-pattern code bundled into it. See [LICENSE](LICENSE). This does not relicense the rest of the hosted application.
+MIT for the CLI package and bundled shared helpers. See [LICENSE](LICENSE). No hosted application is included in this repository.

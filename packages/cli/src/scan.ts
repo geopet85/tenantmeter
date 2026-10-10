@@ -14,31 +14,31 @@ export function tenantFor(pattern: ReturnType<typeof compileTenantPattern>, key:
 }
 
 // A page is applied to a copy. Only the complete page and its next cursor are saved.
-export function applyPage(state: State, page: Page): State {
-  const next: State = structuredClone(state);
-  next.tenants = Object.assign(Object.create(null), next.tenants);
-  const pattern = compileTenantPattern(state.config.pattern);
+export function applyPage(state: State, page: Page, pattern = compileTenantPattern(state.config.pattern)): State {
+  const deltas = new Map<string | null, {bytes: bigint; objects: number}>();
+  let bytes = 0n, invalidObjects = 0;
   for (const object of page.objects) {
     if (typeof object.key !== 'string' || !Number.isSafeInteger(object.bytes) || object.bytes < 0) {
       throw new Error('Provider returned an invalid key or unsafe object size. Progress was not advanced.');
     }
-    const { tenant, invalid } = tenantFor(pattern, object.key);
-    const totals = tenant === null
-      ? next.unmatched
-      : (next.tenants[tenant] ??= { bytes: '0', objects: 0 });
-    totals.bytes = (BigInt(totals.bytes) + BigInt(object.bytes)).toString();
-    totals.objects = addCount(totals.objects, 1);
-    next.objects = addCount(next.objects, 1);
-    next.bytes = (BigInt(next.bytes) + BigInt(object.bytes)).toString();
-    if (invalid) next.invalidTenantObjects = addCount(next.invalidTenantObjects, 1);
+    const {tenant, invalid} = tenantFor(pattern, object.key);
+    const delta = deltas.get(tenant) ?? {bytes: 0n, objects: 0};
+    delta.bytes += BigInt(object.bytes); delta.objects++;
+    deltas.set(tenant, delta); bytes += BigInt(object.bytes);
+    if (invalid) invalidObjects++;
   }
-  next.pages = addCount(next.pages, 1);
-  next.cursor = page.nextCursor;
-  next.updatedAt = new Date().toISOString();
+  // Share unchanged totals; copy only tenants touched by this page. Never mutate the saved state.
+  const next: State = {...state, tenants: Object.assign(Object.create(null), state.tenants), unmatched: {...state.unmatched},
+    objects: addCount(state.objects, page.objects.length), bytes: (BigInt(state.bytes) + bytes).toString(),
+    invalidTenantObjects: addCount(state.invalidTenantObjects, invalidObjects), pages: addCount(state.pages, 1),
+    cursor: page.nextCursor, updatedAt: new Date().toISOString()};
+  for (const [tenant, delta] of deltas) {
+    const old = tenant === null ? state.unmatched : state.tenants[tenant] ?? {bytes: '0', objects: 0};
+    const totals = {bytes: (BigInt(old.bytes) + delta.bytes).toString(), objects: addCount(old.objects, delta.objects)};
+    if (tenant === null) next.unmatched = totals; else next.tenants[tenant] = totals;
+  }
   if (page.nextCursor === null) {
-    next.status = 'complete';
-    next.reason = 'complete';
-    next.finishedAt = next.updatedAt;
+    next.status = 'complete'; next.reason = 'complete'; next.finishedAt = next.updatedAt;
   }
   return next;
 }
@@ -54,20 +54,23 @@ export async function scan(options: {
   preview?: (page: Page) => Promise<void>;
 }) {
   let state = options.state;
+  const pattern = compileTenantPattern(state.config.pattern);
+  const cursors = new Set<string>(state.cursor === null ? [] : [state.cursor]);
   try {
     while (state.status !== 'complete' && state.objects < options.maxObjects && state.requests < (options.maxRequests ?? Infinity)) {
       options.signal.throwIfAborted();
       const maxKeys = Math.min(1000, options.maxObjects - state.objects);
       state = { ...state, requests: state.requests + 1 };
       const page = await options.source.page(state.cursor, maxKeys, options.signal);
-      if (page.objects.length > maxKeys || (page.nextCursor !== null && page.nextCursor === state.cursor)) {
-        throw new Error('Provider returned an oversized page or a repeated cursor.');
+      if (page.objects.length > maxKeys || (page.nextCursor !== null && (typeof page.nextCursor !== 'string' || !page.nextCursor || cursors.has(page.nextCursor)))) {
+        throw new Error('Provider returned an oversized page or an invalid/repeated cursor.');
       }
       if (state.pages === 0 && options.preview) await options.preview(page);
       options.signal.throwIfAborted();
-      const next = applyPage(state, page);
+      const next = applyPage(state, page, pattern);
       await options.save(next);
       state = next;
+      if (state.cursor !== null) cursors.add(state.cursor);
       options.progress?.(state);
     }
     if (state.status !== 'complete') {

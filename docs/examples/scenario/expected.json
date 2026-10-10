@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "total": {
+    "bytes": "17301632",
+    "objects": 1203
+  },
+  "unmatched": {
+    "bytes": "305152",
+    "objects": 39
+  },
+  "tenants": [
+    {
+      "tenantId": "acme",
+      "bytes": "4154752",
+      "objects": 304
+    },
+    {
+      "tenantId": "café",
+      "bytes": "1495808",
+      "objects": 127
+    },
+    {
+      "tenantId": "contoso",
+      "bytes": "2005760",
+      "objects": 124
+    },
+    {
+      "tenantId": "northwind",
+      "bytes": "4895744",
+      "objects": 317
+    },
+    {
+      "tenantId": "studio-42",
+      "bytes": "2988544",
+      "objects": 157
+    },
+    {
+      "tenantId": "東京",
+      "bytes": "1455872",
+      "objects": 135
+    }
+  ]
+}

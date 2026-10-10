@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "bucket": "tenantmeter-example-bucket",
+  "region": "us-east-1",
+  "prefix": "tenantmeter-scenario/11111111-1111-4111-8111-111111111111/",
+  "pattern": "tenantmeter-scenario/11111111-1111-4111-8111-111111111111/customers/{tenant_id}/*",
+  "seed": 42,
+  "count": 1203,
+  "dataSha256": "bd6632762ea22b67c9f6990fc3d2de1f98910f268dc3159ae2ca0a7dc40ab1e8",
+  "expectedSha256": "68c36ba7d43b53d3d7ec0e1b758e129c44b8b3fe856fcd8fcbb2ceb171d56374"
+}

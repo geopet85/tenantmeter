@@ -8,6 +8,7 @@ import { loadState, lockState, saveState } from './state.ts';
 import { newState } from './model.ts';
 import { createSource } from './source.ts';
 import { scan, tenantFor } from './scan.ts';
+import { diffStates, renderDiff } from './diff.ts';
 import { render } from './report.ts';
 import { prepareInventory } from './inventory.ts';
 import { compareCounters, renderComparison } from './compare.ts';
@@ -33,6 +34,20 @@ async function exportFile(path: string, content: string) {
 async function main() {
   const opts = options(process.argv.slice(2));
   if (opts.early !== undefined) { process.stdout.write(opts.early); return; }
+  if (opts.command === 'diff') {
+    const paths = [resolve(opts.before!), resolve(opts.after!)];
+    const [before, after] = await Promise.all(paths.map(loadState));
+    validateConfig(before.config); validateConfig(after.config);
+    const result = diffStates(before, after);
+    const content = renderDiff(result, opts.format, opts.top);
+    if (opts.output) {
+      const output = resolve(opts.output);
+      if (paths.some(path => output === path || output === `${path}.lock`)) throw new Error('Diff output must differ from its checkpoint and lock paths.');
+      await exportFile(output, content); process.stderr.write(`Report: ${output}\n`);
+    } else process.stdout.write(content);
+    process.exitCode = result.hasDifferences ? 3 : 0;
+    return;
+  }
   if (opts.command === 'report' || opts.command === 'compare') {
     const path = resolve(opts.state!);
     const state = await loadState(path);
@@ -59,7 +74,9 @@ async function main() {
   process.on('SIGINT', interrupt);
   process.on('SIGTERM', interrupt);
   let source;
-  let timer: NodeJS.Timeout | undefined;
+  const timer = opts.maxSeconds ? setTimeout(() => controller.abort('time-limit'), opts.maxSeconds * 1000) : undefined;
+  timer?.unref();
+  let scanBegan = false;
   try {
     // Read only after acquiring the lock: another process may have advanced this file.
     let state = opts.resume ? await loadState(statePath) : newState(opts.config!);
@@ -82,10 +99,10 @@ async function main() {
     } else log('Bucket object count is unknown. No request-count estimate available.');
     if (['s3', 'r2'].includes(state.config.provider)) log('Listing charges apply to your cloud account. No object payloads are read.');
     source = await createSource(state.config, {}, controller.signal);
-    timer = opts.maxSeconds ? setTimeout(() => controller.abort('time-limit'), opts.maxSeconds * 1000) : undefined;
-    timer?.unref();
+
     const began = Date.now();
     let lastProgress = 0;
+    scanBegan = true;
     state = await scan({
       source, state, maxObjects: opts.maxObjects, maxRequests: opts.maxRequests, signal: controller.signal,
       save: next => saveState(statePath, next),
@@ -113,6 +130,7 @@ async function main() {
         }
       }
     });
+    clearTimeout(timer);
     const content = render(state, opts.format, opts.top);
     if (outputPath) { await exportFile(outputPath, content); log(`Report: ${outputPath}`); }
     else process.stdout.write(content);
@@ -120,6 +138,11 @@ async function main() {
       log(`Partial report (${state.reason}). Resume with --resume and the checkpoint path above. Increase the reached limit.`);
       process.exitCode = state.reason === 'interrupted' ? 130 : 2;
     }
+  } catch (error) {
+    if (!scanBegan && controller.signal.aborted) {
+      process.exitCode = controller.signal.reason === 'time-limit' ? 2 : 130;
+      process.stderr.write('Stopped during input preparation. No report was generated. Start a fresh scan or resume the checkpoint if one was printed.\n');
+    } else throw error;
   } finally {
     clearTimeout(timer);
     source?.close();

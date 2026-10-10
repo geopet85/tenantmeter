@@ -55,13 +55,15 @@ test('source export includes required helpers and omits hosted code, dependencie
     const command = [resolve('export-source.mjs'), destination];
     const result = spawnSync(process.execPath, command, { encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
-    for (const file of ['packages/cli/src/main.ts', 'lib/tenant/pattern.ts', 'lib/providers/types.ts', 'LICENSE']) {
+    for (const file of ['packages/cli/src/main.ts', 'lib/tenant/pattern.ts', 'lib/providers/types.ts', 'LICENSE', 'packages/cli/src/diff.ts', 'packages/cli/scripts/scenario.mjs', 'docs/examples/scenario/data.jsonl', 'docs/examples/scenario/expected.json', 'docs/examples/scenario/offline-outcome.json', 'docs/PERFORMANCE.md']) {
       await access(join(destination, file));
     }
     for (const file of ['app', 'supabase', 'packages/cli/node_modules', 'packages/cli/dist']) {
       await assert.rejects(access(join(destination, file)));
     }
     assert.equal((await readFile(join(destination, 'docs/outreach/prospects.csv'), 'utf8')).trim().split('\n').length, 1);
+    assert.match(await readFile(join(destination, 'README.md'), 'utf8'), /## Prerequisites/);
+    assert.match(await readFile(join(destination, 'README.md'), 'utf8'), /npm run check/);
     const again = spawnSync(process.execPath, command, { encoding: 'utf8' });
     assert.notEqual(again.status, 0);
     const nested = spawnSync(process.execPath, [resolve('export-source.mjs'), resolve('export-inside-project')], { encoding: 'utf8' });
@@ -99,4 +101,18 @@ test('resume acquires the lock before reading saved progress', async () => {
     const unlocked = cli(['analyze', '--resume', state, '--yes'], dir);
     assert.match(unlocked.stderr, /Cannot read checkpoint/);
   } finally { await rm(dir, {recursive: true, force: true}); }
+});
+
+test('diff CLI reports differences with total/unmatched CSV and equal exit codes', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'tenantmeter-diff-cli-'));
+  try {
+    const before = join(dir, 'before.json'), after = join(dir, 'after.json');
+    const args = ['inventory', '--bucket', 'example-bucket', '--pattern', 'customers/{tenant_id}/*', '--yes'];
+    assert.equal(cli([...args, '--input', resolve('../../docs/examples/inventory.csv'), '--state', before], dir).status, 0);
+    assert.equal(cli([...args, '--input', resolve('../../docs/examples/inventory-after.csv'), '--state', after], dir).status, 0);
+    const result = cli(['diff', '--before', before, '--after', after, '--format', 'csv'], dir);
+    assert.equal(result.status, 3, result.stderr); assert.match(result.stdout, /"unmatched"/); assert.match(result.stdout, /"total"/);
+    const equal = cli(['diff', '--before', before, '--after', before, '--format', 'json'], dir);
+    assert.equal(equal.status, 0); assert.equal(JSON.parse(equal.stdout).hasDifferences, false);
+  } finally {await rm(dir, {recursive: true, force: true});}
 });

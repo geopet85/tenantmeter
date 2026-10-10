@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "status": "complete",
+  "reason": "complete",
+  "provider": "inventory",
+  "bucket": "tenantmeter-example-bucket",
+  "prefix": "tenantmeter-scenario/11111111-1111-4111-8111-111111111111/",
+  "pattern": "tenantmeter-scenario/11111111-1111-4111-8111-111111111111/customers/{tenant_id}/*",
+  "inventoryCreatedAt": null,
+  "startedAt": "2026-10-10T13:13:53.228Z",
+  "updatedAt": "2026-10-10T13:13:53.357Z",
+  "finishedAt": "2026-10-10T13:13:53.357Z",
+  "listingCalls": 0,
+  "pageCalls": 2,
+  "pages": 2,
+  "total": {
+    "bytes": "17301632",
+    "objects": 1203
+  },
+  "matched": {
+    "bytes": "16996480",
+    "objects": 1164
+  },
+  "unmatched": {
+    "bytes": "305152",
+    "objects": 39
+  },
+  "invalidTenantObjects": 0,
+  "tenants": [
+    {
+      "tenantId": "northwind",
+      "bytes": "4895744",
+      "objects": 317
+    },
+    {
+      "tenantId": "acme",
+      "bytes": "4154752",
+      "objects": 304
+    },
+    {
+      "tenantId": "studio-42",
+      "bytes": "2988544",
+      "objects": 157
+    },
+    {
+      "tenantId": "contoso",
+      "bytes": "2005760",
+      "objects": 124
+    },
+    {
+      "tenantId": "café",
+      "bytes": "1495808",
+      "objects": 127
+    },
+    {
+      "tenantId": "東京",
+      "bytes": "1455872",
+      "objects": 135
+    }
+  ],
+  "measurement": "Current-version bytes in the supplied inventory export; excludes old versions, deleted objects and incomplete uploads. Not a point-in-time snapshot or a provider bill. Partial reports cover only scanned objects. Byte totals are decimal strings."
+}
