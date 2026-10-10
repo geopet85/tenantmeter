@@ -50,27 +50,30 @@ export async function scan(options: {
   maxRequests?: number;
   signal: AbortSignal;
   save: (state: State) => Promise<void>;
+  // Disk stores atomically commit page deltas and cursor without rewriting a map.
+  commit?: (state: State, page: Page, pattern: ReturnType<typeof compileTenantPattern>) => State | Promise<State>;
+  hasCursor?: (cursor: string) => boolean;
   progress?: (state: State) => void;
   preview?: (page: Page) => Promise<void>;
 }) {
   let state = options.state;
   const pattern = compileTenantPattern(state.config.pattern);
-  const cursors = new Set<string>(state.cursor === null ? [] : [state.cursor]);
+  const cursors = options.hasCursor ? undefined : new Set<string>(state.cursor === null ? [] : [state.cursor]);
   try {
     while (state.status !== 'complete' && state.objects < options.maxObjects && state.requests < (options.maxRequests ?? Infinity)) {
       options.signal.throwIfAborted();
       const maxKeys = Math.min(1000, options.maxObjects - state.objects);
-      state = { ...state, requests: state.requests + 1 };
+      state = { ...state, requests: addCount(state.requests, 1) };
       const page = await options.source.page(state.cursor, maxKeys, options.signal);
-      if (page.objects.length > maxKeys || (page.nextCursor !== null && (typeof page.nextCursor !== 'string' || !page.nextCursor || cursors.has(page.nextCursor)))) {
+      if (page.objects.length > maxKeys || (page.nextCursor !== null && (typeof page.nextCursor !== 'string' || !page.nextCursor || (page.nextCursor === state.cursor || (options.hasCursor?.(page.nextCursor) ?? cursors!.has(page.nextCursor)))))) {
         throw new Error('Provider returned an oversized page or an invalid/repeated cursor.');
       }
       if (state.pages === 0 && options.preview) await options.preview(page);
       options.signal.throwIfAborted();
-      const next = applyPage(state, page, pattern);
-      await options.save(next);
+      const next = options.commit ? await options.commit(state, page, pattern) : applyPage(state, page, pattern);
+      if (!options.commit) await options.save(next);
       state = next;
-      if (state.cursor !== null) cursors.add(state.cursor);
+      if (state.cursor !== null) cursors?.add(state.cursor);
       options.progress?.(state);
     }
     if (state.status !== 'complete') {

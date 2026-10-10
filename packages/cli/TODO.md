@@ -54,6 +54,13 @@ Scope: the free local CLI. Hosted accounts, billing submission, alerts, and hard
 - [x] Cancel blocked report output on interruption after releasing checkpoint locks; test broken pipes and atomic export failures.
 - [x] Add report memory benchmarks with byte/hash checks against full-string rendering.
 
+- [x] Add opt-in SQLite tenant totals and per-page transactions instead of copying/rewriting the full customer map.
+- [x] Sort disk reports through an exact-decimal index; use disk scratch joins/sorts for comparison and mixed-format diffs.
+- [x] Persist cursor history, validate disk checkpoints, and migrate JSON to new SQLite files without replacing sources.
+- [x] Test transaction rollback, hot-journal recovery, file replacement, snapshot locks, Unicode identities, and cancellation.
+- [x] Review SQLite design/implementation with GPT-6 Astra and resolve findings with GPT-6.1 Sol; verify command paths with GPT-6 Sol.
+- [x] Measure durable storage strategies and run a 200,000-customer disk workload under a 64 MiB JavaScript heap limit.
+
 ## External checks
 
 - [ ] Run the live S3 scenario with a disposable unversioned bucket and credentials.
@@ -65,9 +72,8 @@ Scope: the free local CLI. Hosted accounts, billing submission, alerts, and hard
 - [x] Publish the reviewed source at github.com/geopet85/tenantmeter.
 - [ ] Publish the npm package after release checks.
 
-## Later scaling work
+## Scaling implementation complete
 
-- [ ] Replace full-map copies and full checkpoint rewrites when measured tenant counts require it.
-- [ ] Add disk-backed tenant totals and external sorting for populations that exceed available memory.
+SQLite mode completes the disk-backed totals, incremental checkpoint, and external sorting work. JSON mode retains its original in-memory format for compatibility. Migration reads the source JSON once; new SQLite scans avoid that input memory requirement. Resume validates all stored rows and cursors with bounded JavaScript memory.
 
-These scaling items need a storage/checkpoint format design and migration tests; they are not claimed complete. Current bounds and measured improvements are in ../../docs/PERFORMANCE.md. Live cloud checks remain open because this environment has no AWS/R2 credentials.
+Commands and recovery: [disk checkpoints](../../docs/SCALING.md). Measurements and limits: [performance](../../docs/PERFORMANCE.md). Live cloud checks remain open because this environment has no AWS/R2 credentials.

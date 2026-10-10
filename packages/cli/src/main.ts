@@ -1,11 +1,11 @@
-import { access, open, rm } from 'node:fs/promises';
+import { access, open, rm, realpath } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline/promises';
 import { compileTenantPattern } from '../../../lib/tenant/pattern.ts';
 import { options, validateConfig } from './options.ts';
 import { loadState, lockState, saveState } from './state.ts';
-import { newState } from './model.ts';
+import { newState, type State } from './model.ts';
 import { createSource } from './source.ts';
 import { scan, tenantFor } from './scan.ts';
 import { diffStates, renderDiff } from './diff.ts';
@@ -13,6 +13,9 @@ import { renderChunks } from './report.ts';
 import { exportFile, writeOutput, type Content } from './output.ts';
 import { prepareInventory } from './inventory.ts';
 import { compareCounters, renderComparison } from './compare.ts';
+import { DiskStore } from './disk.ts';
+import { openCheckpoint, isSqlite, protectOutput } from './checkpoint.ts';
+import { compareDisk, diffDisk } from './disk-commands.ts';
 
 async function ensureNew(path: string) {
   try { await access(path); }
@@ -26,60 +29,114 @@ async function ensureNew(path: string) {
 class OutputInterruptedError extends Error {
   constructor(readonly forceExit: boolean) { super('Report output interrupted.'); this.name = 'AbortError'; }
 }
-async function emit(content: Content, path?: string) {
+async function emit(content: Content, path?: string, signal?: AbortSignal) {
   // Output has its own signal: an interrupted scan still needs to print its
   // partial report, while a later interrupt must stop a stalled report write.
   const controller = new AbortController();
   const interrupt = () => controller.abort();
+  const outputSignal = signal ?? controller.signal;
   process.on('SIGINT', interrupt);
   process.on('SIGTERM', interrupt);
   try {
-    if (path) await exportFile(path, content, controller.signal);
-    else await writeOutput(content, process.stdout, controller.signal);
+    if (path) await exportFile(path, content, outputSignal);
+    else await writeOutput(content, process.stdout, outputSignal);
   } catch (error) {
-    if (controller.signal.aborted) throw new OutputInterruptedError(!path);
+    if (outputSignal.aborted) throw new OutputInterruptedError(!path);
     throw error;
   } finally {
     process.off('SIGINT', interrupt);
     process.off('SIGTERM', interrupt);
   }
 }
+async function withCancellation<T>(work: (signal: AbortSignal) => Promise<T>) {
+  const controller = new AbortController();
+  const interrupt = () => controller.abort();
+  process.on('SIGINT', interrupt); process.on('SIGTERM', interrupt);
+  try { return await work(controller.signal); }
+  finally { process.off('SIGINT', interrupt); process.off('SIGTERM', interrupt); }
+}
 async function main() {
   const opts = options(process.argv.slice(2));
   if (opts.early !== undefined) { await emit(opts.early); return; }
+  if (opts.command === 'migrate') {
+    const path = resolve(opts.state!), output = resolve(opts.output!);
+    await protectOutput(output, [path]);
+    await ensureNew(output);
+    const unlock = await lockState(output);
+    try {
+      await withCancellation(async signal => {
+        if (await isSqlite(path)) throw new Error('Migrate requires a JSON checkpoint. SQLite checkpoints already use disk storage.');
+        const state = await loadState(path); validateConfig(state.config);
+        const disk = await DiskStore.importJson(output, state, signal);
+        disk.close();
+        process.stderr.write(`SQLite checkpoint: ${output}\nSource JSON checkpoint preserved: ${path}\n`);
+      });
+    } finally { await unlock(); }
+    return;
+  }
   if (opts.command === 'diff') {
     const paths = [resolve(opts.before!), resolve(opts.after!)];
-    const [before, after] = await Promise.all(paths.map(loadState));
-    validateConfig(before.config); validateConfig(after.config);
-    const result = diffStates(before, after);
-    const content = renderDiff(result, opts.format, opts.top);
-    if (opts.output) {
-      const output = resolve(opts.output);
-      if (paths.some(path => output === path || output === `${path}.lock`)) throw new Error('Diff output must differ from its checkpoint and lock paths.');
-      await emit(content, output); process.stderr.write(`Report: ${output}\n`);
-    } else await emit(content);
-    process.exitCode = result.hasDifferences ? 3 : 0;
+    const output = opts.output ? resolve(opts.output) : undefined;
+    if (output) await protectOutput(output, paths);
+    await withCancellation(async signal => {
+      const snapshots: Awaited<ReturnType<typeof openCheckpoint>>[] = [];
+      let result: Awaited<ReturnType<typeof diffDisk>> | undefined;
+      try {
+        const unique = new Map<string, Awaited<ReturnType<typeof openCheckpoint>>>();
+        // Deduplicate before reading headers: closing any raw descriptor for an
+        // SQLite inode can release this process's existing SQLite file locks.
+        for (const path of paths) {
+          const canonical = await realpath(path);
+          let checkpoint = unique.get(canonical);
+          if (!checkpoint) { checkpoint = await openCheckpoint(path, true, signal); unique.set(canonical, checkpoint); }
+          snapshots.push(checkpoint);
+        }
+        const [before, after] = snapshots;
+        let content: Content, differences: boolean;
+        if (before.disk || after.disk) {
+          result = await diffDisk(before.snapshot, after.snapshot, signal);
+          content = result.chunks(opts.format, opts.top); differences = result.hasDifferences;
+        } else {
+          const diff = diffStates(before.state, after.state);
+          content = renderDiff(diff, opts.format, opts.top); differences = diff.hasDifferences;
+        }
+        await emit(content, output, signal);
+        if (output) process.stderr.write(`Report: ${output}\n`);
+        process.exitCode = differences ? 3 : 0;
+      } finally {
+        try { await result?.close(); } finally { for (const snapshot of new Set(snapshots.reverse())) snapshot.close(); }
+      }
+    });
     return;
   }
   if (opts.command === 'report' || opts.command === 'compare') {
     const path = resolve(opts.state!);
-    const state = await loadState(path);
-    validateConfig(state.config);
-    const comparison = opts.command === 'compare' ? await compareCounters(state, opts.counters!) : undefined;
-    const content = comparison ? renderComparison(comparison, opts.format, opts.top) : renderChunks(state, opts.format, opts.top);
-    if (opts.output) {
-      const output = resolve(opts.output);
-      if (output === path || output === `${path}.lock`) throw new Error('Report output must differ from checkpoint and lock paths.');
-      await emit(content, output);
-      process.stderr.write(`Report: ${output}\n`);
-    } else await emit(content);
-    process.exitCode = comparison ? comparison.different ? 3 : 0 : state.status === 'complete' ? 0 : state.reason === 'interrupted' ? 130 : 2;
+    const output = opts.output ? resolve(opts.output) : undefined;
+    if (output) await protectOutput(output, [path]);
+    await withCancellation(async signal => {
+      const checkpoint = await openCheckpoint(path, true, signal);
+      let diskComparison: Awaited<ReturnType<typeof compareDisk>> | undefined;
+      try {
+        const {state, disk, snapshot} = checkpoint;
+        let content: Content, differences: number | undefined;
+        if (opts.command === 'compare' && disk) {
+          diskComparison = await compareDisk(snapshot, opts.counters!, signal);
+          content = diskComparison.chunks(opts.format, opts.top); differences = diskComparison.different;
+        } else if (opts.command === 'compare') {
+          const comparison = await compareCounters(state, opts.counters!);
+          content = renderComparison(comparison, opts.format, opts.top); differences = comparison.different;
+        } else content = renderChunks(state, opts.format, opts.top, disk ? snapshot : undefined);
+        await emit(content, output, signal);
+        if (output) process.stderr.write(`Report: ${output}\n`);
+        process.exitCode = differences !== undefined ? differences ? 3 : 0 : state.status === 'complete' ? 0 : state.reason === 'interrupted' ? 130 : 2;
+      } finally { try { await diskComparison?.close(); } finally { checkpoint.close(); } }
+    });
     return;
   }
   if (!opts.yes && !process.stdin.isTTY) throw new Error('Non-interactive scans require --yes after reviewing --help and the mapping.');
-  const statePath = resolve(opts.resume ?? opts.state ?? `.tenantmeter-state/${Date.now()}-${randomUUID()}.json`);
+  const statePath = resolve(opts.resume ?? opts.state ?? `.tenantmeter-state/${Date.now()}-${randomUUID()}.${opts.storage === 'sqlite' ? 'sqlite' : 'json'}`);
   const outputPath = opts.output ? resolve(opts.output) : undefined;
-  if (outputPath === statePath || outputPath === `${statePath}.lock`) throw new Error('Report output must differ from checkpoint and lock paths.');
+  if (outputPath) await protectOutput(outputPath, [statePath]);
   if (outputPath) await ensureNew(outputPath);
   const unlock = await lockState(statePath);
   const controller = new AbortController();
@@ -87,12 +144,17 @@ async function main() {
   process.on('SIGINT', interrupt);
   process.on('SIGTERM', interrupt);
   let source;
+  let disk: DiskStore | undefined;
   const timer = opts.maxSeconds ? setTimeout(() => controller.abort('time-limit'), opts.maxSeconds * 1000) : undefined;
   timer?.unref();
   let scanBegan = false;
   try {
     // Read only after acquiring the lock: another process may have advanced this file.
-    let state = opts.resume ? await loadState(statePath) : newState(opts.config!);
+    let state: State;
+    if (opts.resume) {
+      const checkpoint = await openCheckpoint(statePath, false, controller.signal);
+      disk = checkpoint.disk; state = checkpoint.state;
+    } else state = newState(opts.config!);
     if (!opts.resume && opts.command === 'inventory') state = newState(await prepareInventory(state.config, opts.inventoryOptions, controller.signal));
     validateConfig(state.config);
     if (opts.command === 'demo' && state.config.provider !== 'demo') throw new Error('Use analyze to resume a real bucket scan.');
@@ -100,7 +162,15 @@ async function main() {
     if (state.status === 'complete') throw new Error('This scan is already complete. Start a new scan to measure again.');
     if (state.objects >= opts.maxObjects) throw new Error('Saved progress has reached this limit. Increase --max-objects or use --all.');
     if (state.requests >= opts.maxRequests) throw new Error('Saved progress has reached the request limit. Increase --max-requests.');
-    if (!opts.resume) { await ensureNew(statePath); await saveState(statePath, state); }
+    if (!opts.resume) {
+      await ensureNew(statePath);
+      if (opts.storage === 'sqlite') {
+        const config = state.config;
+        disk = await DiskStore.create(statePath, config, controller.signal);
+        state = disk.state(); state.config = config;
+      }
+      else await saveState(statePath, state);
+    }
     const log = (text: string) => process.stderr.write(text + '\n');
     log(`Checkpoint: ${statePath}`);
     log(`Scope: ${JSON.stringify(state.config.bucket)}, prefix ${JSON.stringify(state.config.prefix)}. Limit: ${Number.isFinite(opts.maxObjects) ? opts.maxObjects : 'unlimited'} total objects.`);
@@ -118,10 +188,11 @@ async function main() {
     scanBegan = true;
     state = await scan({
       source, state, maxObjects: opts.maxObjects, maxRequests: opts.maxRequests, signal: controller.signal,
-      save: next => saveState(statePath, next),
+      save: async next => { if (disk) disk.save(next); else await saveState(statePath, next); },
+      ...(disk ? {commit: (next: Parameters<DiskStore['applyPage']>[0], page: Parameters<DiskStore['applyPage']>[1], pattern: Parameters<DiskStore['applyPage']>[2]) => disk!.applyPage(next, page, pattern), hasCursor: (cursor: string) => disk!.hasCursor(cursor)} : {}),
       progress: next => {
         if (Date.now() - lastProgress > 1000 || next.status === 'complete') {
-          log(`${next.objects} objects, ${Object.keys(next.tenants).length} customers, ${next.pages} pages; ${Math.round((Date.now() - began) / 1000)}s this run.`);
+          log(`${next.objects} objects, ${disk ? disk.tenantCount() : Object.keys(next.tenants).length} customers, ${next.pages} pages; ${Math.round((Date.now() - began) / 1000)}s this run.`);
           lastProgress = Date.now();
         }
       },
@@ -144,7 +215,7 @@ async function main() {
       }
     });
     clearTimeout(timer);
-    const content = renderChunks(state, opts.format, opts.top);
+    const content = renderChunks(state, opts.format, opts.top, disk ? {count: disk.tenantCount(), rows: () => disk!.rows()} : undefined);
     if (outputPath) { await emit(content, outputPath); log(`Report: ${outputPath}`); }
     else await emit(content);
     if (state.status === 'partial') {
@@ -161,7 +232,7 @@ async function main() {
     source?.close();
     process.off('SIGINT', interrupt);
     process.off('SIGTERM', interrupt);
-    await unlock();
+    try { disk?.close(); } finally { await unlock(); }
   }
 }
 

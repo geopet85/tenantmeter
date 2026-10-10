@@ -27,4 +27,9 @@
 - Streamed scan report exports with backpressure, bounded write batches, and interrupt cleanup.
 - Report memory benchmark with byte-identical JSON/CSV checks.
 
+- Opt-in SQLite tenant totals, incremental page transactions, indexed report ordering, and persisted cursor history.
+- Disk-backed counter comparisons and mixed JSON/SQLite diffs with streamed output.
+- Explicit JSON migration, hot-journal recovery, snapshot locking, and malformed Unicode rejection.
+- Storage benchmark and tested large-scan/recovery instructions.
+
 Source is public. Live provider verification and npm publication remain pending.

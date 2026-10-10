@@ -39,6 +39,11 @@ export async function loadState(path: string): Promise<State> {
   let state: State;
   try { state = JSON.parse(await readFile(path, 'utf8')); }
   catch { throw new Error('Cannot read checkpoint. Check its path and JSON contents.'); }
+  return validateState(state);
+}
+
+export function validateState(value: unknown, verifyTotals = true): State {
+  const state = value as State;
   if (!state || state.version !== 1 || !state.config ||
       !['partial', 'complete'].includes(state.status) ||
       !['in-progress', 'object-limit', 'request-limit', 'time-limit', 'interrupted', 'error', 'complete'].includes(state.reason) ||
@@ -58,7 +63,7 @@ export async function loadState(path: string): Promise<State> {
     bytes += BigInt(value.bytes);
     objects += value.objects;
   }
-  if (bytes.toString() !== state.bytes || objects !== state.objects || state.invalidTenantObjects > state.unmatched.objects ||
+  if ((verifyTotals && (bytes.toString() !== state.bytes || objects !== state.objects)) || state.invalidTenantObjects > state.unmatched.objects ||
       state.requests < state.pages || (state.status === 'complete' && (state.cursor !== null || !state.finishedAt || state.reason !== 'complete')) ||
       (state.status === 'partial' && (state.finishedAt !== null || state.reason === 'complete' || (state.pages > 0 && state.cursor === null)))) {
     throw new Error('Checkpoint totals or cursor are inconsistent. Start a fresh scan.');

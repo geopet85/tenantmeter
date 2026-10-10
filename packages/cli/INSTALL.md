@@ -1,6 +1,6 @@
 # Install and run
 
-Use Node.js 22 LTS to match this repository's `.nvmrc`. CI also tests Node.js 24 LTS. npm comes with Node; do not install npm separately. No AWS credentials are needed to build or run the demo.
+Use Node.js 22 LTS to match this repository's `.nvmrc`. CI also tests Node.js 24 LTS. Optional SQLite checkpoints require Node 22.13 or newer, or Node 24. Installing the latest patch of either LTS line meets that requirement. npm comes with Node; do not install npm separately. No AWS credentials are needed to build or run the demo.
 
 ## macOS
 

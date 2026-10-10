@@ -6,7 +6,7 @@ Cloud scans list object keys and sizes. They do not download payloads, upload ob
 
 ## Prerequisites
 
-- **Node.js 22 or newer and npm.** Check with `node --version` and `npm --version`. Use the OS-specific steps below; npm comes with Node.
+- **Node.js 22 or newer and npm.** Check with `node --version` and `npm --version`. Use the OS-specific steps below; npm comes with Node. Optional disk checkpoints require Node 22.13 or newer (or Node 24).
 - **Source checkout.** Git is needed only to clone the repository. A downloaded source archive works too. `npm ci` needs access to the npm registry on the first install.
 - **AWS scans:** an existing S3 bucket, its region, and credentials with `s3:ListBucket` permission. Use an AWS profile/SSO session, environment credentials, or an IAM role. AWS CLI is optional unless you use it to configure or sign in to your profile.
 - **R2 scans:** an existing bucket, your Cloudflare account ID, and bucket-scoped S3 Access Key ID and Secret Access Key with listing permission. A Cloudflare bearer token will not work.
@@ -82,6 +82,7 @@ The inventory contains 33 bytes. Comparison exits **3** because acme's measured 
 - [Complete setup, inventory, comparison, diff, and scheduling commands](packages/cli/README.md)
 - [Fake-data cloud scenario: plan, upload, verify, and clean up](docs/examples/scenario/README.md)
 - [Sample reports and expected totals](docs/examples/README.md)
+- [Disk checkpoints, migration, and large scans](docs/SCALING.md)
 - [Technical work done and remaining](packages/cli/TODO.md)
 - [Release checks](docs/CLI_NEXT_STEPS.md)
 - [Contributing](packages/cli/CONTRIBUTING.md) and [security](packages/cli/SECURITY.md)

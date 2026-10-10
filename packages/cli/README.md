@@ -6,7 +6,7 @@ Cloud scans only call `ListObjectsV2`. Inventory imports, counter comparisons, a
 
 ## Prerequisites
 
-- Node.js 22 or newer and npm; check `node --version` and `npm --version`.
+- Node.js 22 or newer and npm; check `node --version` and `npm --version`. Optional SQLite checkpoints require 22.13 or newer (or Node 24).
 - A source checkout or archive to build. Git is optional after downloading the source. The first `npm ci` needs npm registry access.
 - For AWS: an existing bucket, its region, and credentials with `s3:ListBucket`. Use a profile, an SSO session, environment credentials, or an IAM role. AWS CLI is optional; it is needed for the `aws sso login` example below.
 - For R2: an existing bucket, its Cloudflare account ID, and S3 credentials for a bucket-scoped Object Read token. These are not a Cloudflare API bearer token.
@@ -182,6 +182,20 @@ Table output shows the 20 largest customers by default. CSV and JSON contain all
 
 Check the exit code and JSON `status` before using totals. No report is generated on provider failure; use `report --state PATH` to inspect saved progress.
 
+## Disk checkpoints for larger scans
+
+Use `--storage sqlite` on a new scan to keep customer totals on disk and commit only each page's changes. Requires Node 22.13 or newer, or Node 24, with built-in SQLite. JSON remains the default.
+
+```sh
+tenantmeter demo --storage sqlite --state demo.sqlite --max-objects 1001 --format json
+tenantmeter analyze --resume demo.sqlite --all --yes
+tenantmeter report --state demo.sqlite --format csv --output usage.csv
+```
+
+The first command exits 2 at its object limit. Resume detects the saved format; omit `--storage`. Disk reports, comparisons, and mixed JSON/SQLite diffs stream results. Migrate a legacy file with `tenantmeter migrate --state existing.json --output new.sqlite`; the source is preserved and the destination must be new. Migration loads the legacy JSON once. Equal-size rows use binary UTF-8 ID order in disk mode.
+
+See [disk setup, migration, exact ordering, recovery, and scheduling](SCALING.md) before a long scan. Retain rollback journals after a crash; remove only a stale `.lock` after confirming its process stopped. Node 22 may print a SQLite experimental warning on stderr.
+
 ## Local inventory
 
 Run these examples from `packages/cli`, before installing globally. Each checkpoint path must be new:
@@ -288,7 +302,7 @@ JSON reports use `schemaVersion: 1`. Checkpoints use `version: 1` and are resume
 
 ## Efficiency
 
-Inventory rows are streamed instead of loading the object list. Tenant totals stay in memory. Page updates copy only affected tenant totals; checkpoints still serialize every tenant after each saved page. CSV/JSON scan reports stream to stdout or a new output file in batches of at most 64 KiB. Slow readers pause rendering. Files become visible only after the full report is written, and existing files are never replaced. Ctrl+C during output exits 130 after releasing the checkpoint lock; a completed checkpoint remains usable with `report`. Tenant totals and sorted IDs still stay in memory. Counter comparisons and diffs still build their result rows and output strings. Listing requests use URL-encoded keys so XML control characters are handled correctly. See [performance checks](../../docs/PERFORMANCE.md) for benchmark commands, measurements, and limits.
+Inventory rows are streamed instead of loading the object list. JSON storage keeps tenant totals in memory and serializes all tenants per page. SQLite storage keeps tenant totals/cursor history on disk and commits affected tenants plus metadata per page. CSV/JSON scan reports stream to stdout or a new output file in batches of at most 64 KiB. Slow readers pause rendering. Files become visible only after the full report is written, and existing files are never replaced. Ctrl+C during output exits 130 after releasing the checkpoint lock; a completed checkpoint remains usable with `report`. JSON storage keeps totals and sorted IDs in memory. SQLite reports iterate an index; disk comparisons/diffs sort private scratch data and stream rows. JSON-only comparisons/diffs still build result arrays and output strings. Listing requests use URL-encoded keys so XML control characters are handled correctly. See [performance checks](../../docs/PERFORMANCE.md) for benchmark commands, measurements, and limits.
 
 ## Measurement limits
 

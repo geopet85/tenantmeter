@@ -13,6 +13,7 @@ Usage:
   tenantmeter inventory --manifest FILE --inventory-root DIR --pattern PATTERN [options]
   tenantmeter compare --state STATE_FILE --counters FILE [--format table|json|csv]
   tenantmeter diff --before STATE_FILE --after STATE_FILE [--format table|json|csv]
+  tenantmeter migrate --state JSON_CHECKPOINT --output NEW_SQLITE_FILE
 
 Options:
   --provider s3|r2         Storage provider
@@ -27,6 +28,7 @@ Options:
   --max-seconds NUMBER     Stop after this many seconds in this invocation
   --all                    Remove object limit; listing charges may apply
   --estimate-objects N     Optional estimate to show listing request count before starting
+  --storage json|sqlite    Checkpoint storage for NEW scans (default: json; sqlite needs Node 22.13+)
   --state PATH             Checkpoint path (default: unique file under .tenantmeter-state/)
   --resume PATH            Resume an existing checkpoint; retain its bucket and mapping
   --yes                    Skip preview confirmation (required without an interactive terminal)
@@ -79,7 +81,7 @@ export function options(args: string[]) {
     region: { type: 'string' }, 'account-id': { type: 'string' }, jurisdiction: { type: 'string' },
     prefix: { type: 'string' }, 'max-objects': { type: 'string' }, 'estimate-objects': { type: 'string' },
     'max-requests': { type: 'string' }, 'max-seconds': { type: 'string' },
-    state: { type: 'string' }, resume: { type: 'string' }, format: { type: 'string' },
+    storage: { type: 'string' }, state: { type: 'string' }, resume: { type: 'string' }, format: { type: 'string' },
     output: { type: 'string' }, top: { type: 'string' }, all: { type: 'boolean' },
     yes: { type: 'boolean' }, help: { type: 'boolean' }, version: { type: 'boolean' },
     before: { type: 'string' }, after: { type: 'string' },
@@ -88,16 +90,20 @@ export function options(args: string[]) {
   } });
   if (values.help || values.version || args.length === 0) return { early: values.version ? '0.1.0\n' : help } as const;
   const command = positionals[0];
-  if (positionals.length !== 1 || !['demo', 'analyze', 'report', 'inventory', 'compare', 'diff'].includes(command)) throw new Error('Choose analyze, demo, inventory, report, compare, or diff. Run tenantmeter --help.');
+  if (positionals.length !== 1 || !['demo', 'analyze', 'report', 'inventory', 'compare', 'diff', 'migrate'].includes(command)) throw new Error('Choose analyze, demo, inventory, report, compare, diff, or migrate. Run tenantmeter --help.');
   const allowed: Record<string, Set<string>> = {
-    demo: new Set(['state', 'resume', 'max-objects', 'max-requests', 'max-seconds', 'all', 'estimate-objects', 'format', 'output', 'top', 'yes']),
-    analyze: new Set(['provider', 'bucket', 'pattern', 'region', 'account-id', 'jurisdiction', 'prefix', 'state', 'resume', 'max-objects', 'max-requests', 'max-seconds', 'all', 'estimate-objects', 'format', 'output', 'top', 'yes']),
-    inventory: new Set(['input', 'manifest', 'inventory-root', 'columns', 'raw-keys', 'bucket', 'pattern', 'prefix', 'state', 'resume', 'max-objects', 'max-requests', 'max-seconds', 'all', 'format', 'output', 'top', 'yes']),
+    demo: new Set(['storage', 'state', 'resume', 'max-objects', 'max-requests', 'max-seconds', 'all', 'estimate-objects', 'format', 'output', 'top', 'yes']),
+    analyze: new Set(['storage', 'provider', 'bucket', 'pattern', 'region', 'account-id', 'jurisdiction', 'prefix', 'state', 'resume', 'max-objects', 'max-requests', 'max-seconds', 'all', 'estimate-objects', 'format', 'output', 'top', 'yes']),
+    inventory: new Set(['storage', 'input', 'manifest', 'inventory-root', 'columns', 'raw-keys', 'bucket', 'pattern', 'prefix', 'state', 'resume', 'max-objects', 'max-requests', 'max-seconds', 'all', 'format', 'output', 'top', 'yes']),
     report: new Set(['state', 'format', 'output', 'top']),
     compare: new Set(['state', 'counters', 'format', 'output', 'top']),
-    diff: new Set(['before', 'after', 'format', 'output', 'top'])
+    diff: new Set(['before', 'after', 'format', 'output', 'top']),
+    migrate: new Set(['state', 'output'])
   };
   for (const key of Object.keys(values)) if (!allowed[command].has(key)) throw new Error(`--${key} is not supported by ${command}.`);
+  if (values.storage !== undefined && !['json', 'sqlite'].includes(values.storage)) throw new Error('--storage must be json or sqlite.');
+  if (values.resume && values.storage) throw new Error('Resume detects checkpoint storage. Remove --storage.');
+  if (command === 'migrate' && (!values.state || !values.output)) throw new Error('Migrate requires --state JSON_CHECKPOINT and --output NEW_SQLITE_FILE.');
   if (values.all && values['max-objects']) throw new Error('Use --all or --max-objects, not both.');
   if (values.resume && values.state) throw new Error('Use --resume or --state, not both.');
   const configKeys = ['provider', 'bucket', 'pattern', 'region', 'account-id', 'jurisdiction', 'prefix'] as const;
@@ -116,7 +122,7 @@ export function options(args: string[]) {
   if (positive(values['max-seconds'], '--max-seconds', 0) > 2_147_483) throw new Error('--max-seconds must not exceed 2147483.');
   const format = values.format ?? 'table';
   if (!['table', 'json', 'csv'].includes(format)) throw new Error('--format must be table, json, or csv.');
-  const config: Config | undefined = values.resume || command === 'report' || command === 'compare' || command === 'diff' ? undefined : validateConfig({
+  const config: Config | undefined = values.resume || command === 'report' || command === 'compare' || command === 'diff' || command === 'migrate' ? undefined : validateConfig({
     provider: (command === 'demo' ? 'demo' : command === 'inventory' ? 'inventory' : values.provider) as Config['provider'],
     bucket: command === 'demo' ? 'demo-bucket' : values.bucket ?? '',
     pattern: command === 'demo' ? 'customers/{tenant_id}/*' : values.pattern ?? '',
@@ -128,7 +134,7 @@ export function options(args: string[]) {
   if (command === 'analyze' && !values.resume && !['s3', 'r2'].includes(values.provider ?? '')) throw new Error('--provider must be s3 or r2.');
   if (values.provider === 'r2' && values.region) throw new Error('R2 uses region auto. Remove --region.');
   return {
-    early: undefined, command, config, resume: values.resume, state: values.state,
+    early: undefined, command, config, storage: (values.storage ?? 'json') as 'json' | 'sqlite', resume: values.resume, state: values.state,
     maxObjects: values.all ? Infinity : positive(values['max-objects'], '--max-objects', 100_000),
     maxRequests: positive(values['max-requests'], '--max-requests', 10_000),
     maxSeconds: positive(values['max-seconds'], '--max-seconds', 0),

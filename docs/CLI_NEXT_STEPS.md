@@ -12,12 +12,13 @@ npm run check
 npm run package:check
 npm run examples:generate
 npm run bench
+npm run bench:storage
 npm audit --omit=dev
 ```
 
 `check` typechecks, tests, and builds. `package:check` checks allowed tarball files, installs locked production dependencies and the tarball into a fresh temporary directory, then verifies demo totals. `examples:generate` runs the documented fake inventory/manifest/comparison/diff commands and checks their totals.
 
-`bench` measures local aggregation only. See [PERFORMANCE.md](PERFORMANCE.md) for workload details. The [scenario helper](examples/scenario/README.md) checks known quantities offline and provides separate cloud upload, verification, and cleanup steps.
+`bench` measures local aggregation only. `bench:storage` compares durable JSON/SQLite page commits and validates matching exports; SQLite needs Node 22.13 or newer. See [disk commands and crash recovery](SCALING.md). See [PERFORMANCE.md](PERFORMANCE.md) for workload details. The [scenario helper](examples/scenario/README.md) checks known quantities offline and provides separate cloud upload, verification, and cleanup steps.
 
 The configured GitHub matrix covers Linux, macOS, and Windows with Node 22 and 24. Run it before release; local macOS/Node 22 checks do not establish that the other jobs pass. The initial public run for commit `19b5eb4` passed all six jobs. The feature batch `211154c` also passed all six jobs in [run 38055538771](https://github.com/geopet85/tenantmeter/actions/runs/38055538771). Both full and production-only dependency audits reported zero vulnerabilities on 2026-10-10. Live provider tests have not run here.
 

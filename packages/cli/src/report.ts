@@ -50,30 +50,39 @@ export function report(state: State) {
 }
 
 // The CLI consumes this iterator without retaining the complete encoded report.
-export function* renderChunks(state: State, format: 'table' | 'json' | 'csv', top = 20): Generator<string> {
+export function* renderChunks(state: State, format: 'table' | 'json' | 'csv', top = 20, source?: {count: number; rows(): Iterable<{tenantId: string; bytes: string; objects: number}>}): Generator<string> {
   const {measurement, ...result} = metadata(state);
-  const ids = sortedTenantIds(state);
+  const ids = source ? [] : sortedTenantIds(state);
+  const count = source?.count ?? ids.length;
+  function* rows() {
+    if (source) yield* source.rows();
+    else for (const tenantId of ids) yield {tenantId, ...state.tenants[tenantId]};
+  }
   if (format === 'json') {
     yield JSON.stringify(result, null, 2).slice(0, -2) + ',\n  "tenants": [';
-    for (let index = 0; index < ids.length; index++) {
-      const tenantId = ids[index];
-      const row = JSON.stringify({tenantId, ...state.tenants[tenantId]}, null, 2).replaceAll('\n', '\n    ');
-      yield `${index ? ',\n' : '\n'}    ${row}`;
+    let index = 0;
+    for (const tenant of rows()) {
+      const row = JSON.stringify(tenant, null, 2).replaceAll('\n', '\n    ');
+      yield `${index++ ? ',\n' : '\n'}    ${row}`;
     }
-    yield `${ids.length ? '\n  ' : ''}],\n  "measurement": ${JSON.stringify(measurement)}\n}\n`;
+    yield `${count ? '\n  ' : ''}],\n  "measurement": ${JSON.stringify(measurement)}\n}\n`;
     return;
   }
   if (format === 'csv') {
     const row = (cells: (string | number)[]) => cells.map(csvCell).join(',') + '\n';
     yield row(['row_type', 'tenant_id', 'bytes', 'objects', 'status', 'reason', 'started_at', 'finished_at']);
-    for (const tenantId of ids) {
-      const totals = state.tenants[tenantId];
-      yield row(['tenant', tenantId, totals.bytes, totals.objects, result.status, result.reason, result.startedAt, result.finishedAt ?? '']);
+    for (const totals of rows()) {
+      yield row(['tenant', totals.tenantId, totals.bytes, totals.objects, result.status, result.reason, result.startedAt, result.finishedAt ?? '']);
     }
     for (const [kind, totals] of [['unmatched', result.unmatched], ['total', result.total]] as const) {
       yield row([kind, '', totals.bytes, totals.objects, result.status, result.reason, result.startedAt, result.finishedAt ?? '']);
     }
     return;
+  }
+  const displayed: string[] = [];
+  for (const tenant of rows()) {
+    if (displayed.length >= top) break;
+    displayed.push(`${JSON.stringify(tenant.tenantId).padEnd(32)} ${humanBytes(tenant.bytes).padStart(12)} ${String(tenant.objects).padStart(8)}`);
   }
   const lines = [
     `TenantMeter — ${result.status.toUpperCase()} (${result.reason})`,
@@ -82,11 +91,11 @@ export function* renderChunks(state: State, format: 'table' | 'json' | 'csv', to
     `Started: ${result.startedAt} | ${result.finishedAt ? `Finished: ${result.finishedAt}` : `Updated: ${result.updatedAt}`}`,
     `Scanned: ${result.total.objects.toLocaleString('en-US')} objects | ${humanBytes(result.total.bytes)} | ${result.pages} pages`,
     '', 'Customer                         Storage          Files',
-    ...ids.slice(0, top).map(tenantId => `${JSON.stringify(tenantId).padEnd(32)} ${humanBytes(state.tenants[tenantId].bytes).padStart(12)} ${String(state.tenants[tenantId].objects).padStart(8)}`),
-    '', `Matched: ${humanBytes(result.matched.bytes)} (${result.matched.objects} objects; ${ids.length} customers)`,
+    ...displayed,
+    '', `Matched: ${humanBytes(result.matched.bytes)} (${result.matched.objects} objects; ${count} customers)`,
     `Unmatched: ${humanBytes(result.unmatched.bytes)} (${result.unmatched.objects} objects)`,
     ...(result.invalidTenantObjects ? [`Invalid customer IDs: ${result.invalidTenantObjects} objects, included in unmatched.`] : []),
-    ...(ids.length > top ? [`Showing ${top} customers. CSV/JSON exports include every customer.`] : []),
+    ...(count > top ? [`Showing ${top} customers. CSV/JSON exports include every customer.`] : []),
     '', measurement
   ];
   for (const line of lines) yield line + '\n';

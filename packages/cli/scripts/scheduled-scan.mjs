@@ -27,7 +27,9 @@ async function main() {
     await handle.writeFile(record);
     const name = `${new Date().toISOString().replaceAll(':', '-')}-${randomUUID()}`;
     const bin = resolve(dirname(fileURLToPath(import.meta.url)), '../dist/tenantmeter.js');
-    const child = spawn(process.execPath, [bin, ...config.args, '--yes', '--format', 'json', '--state', resolve(directory, `${name}.state.json`), '--output', resolve(directory, `${name}.report.json`)], { stdio: 'inherit', cwd: dirname(configPath) });
+    const storage = config.args.reduce((value, arg, index) => arg === '--storage' ? config.args[index + 1] : arg.startsWith('--storage=') ? arg.slice('--storage='.length) : value, 'json');
+    const extension = storage === 'sqlite' ? 'sqlite' : 'json';
+    const child = spawn(process.execPath, [bin, ...config.args, '--yes', '--format', 'json', '--state', resolve(directory, `${name}.state.${extension}`), '--output', resolve(directory, `${name}.report.json`)], { stdio: 'inherit', cwd: dirname(configPath) });
     const stop = signal => child.kill(signal);
     const int = () => stop('SIGINT');
     const term = () => stop('SIGTERM');
