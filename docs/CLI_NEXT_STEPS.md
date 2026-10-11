@@ -20,7 +20,7 @@ npm audit --omit=dev
 
 `bench` measures local aggregation only. `bench:storage` compares durable JSON/SQLite page commits and validates matching exports; SQLite needs Node 22.13 or newer. See [disk commands and crash recovery](SCALING.md). See [PERFORMANCE.md](PERFORMANCE.md) for workload details. The [scenario helper](examples/scenario/README.md) checks known quantities offline and provides separate cloud upload, verification, and cleanup steps.
 
-The configured GitHub matrix covers Linux, macOS, and Windows with Node 22 and 24. Run it before release; local macOS/Node 22 checks do not establish that the other jobs pass. The initial public run for commit `19b5eb4` passed all six jobs. The feature batch `211154c` also passed all six jobs in [run 38055538771](https://github.com/geopet85/tenantmeter/actions/runs/38055538771). Both full and production-only dependency audits reported zero vulnerabilities on 2026-10-10. Live provider tests have not run here.
+The GitHub matrix covers Linux, macOS, and Windows with current Node 22 and 24, plus exact Node 22.0 (JSON runtime smoke), 22.13, and 24.0. All nine jobs passed for code commit `58b3033` in [run 38168362522](https://github.com/geopet85/tenantmeter/actions/runs/38168362522). Local full checks and a fresh source export each passed 111 tests with one expected skip; installed-package checks passed on Node 22.13. Full and production-only dependency audits reported zero vulnerabilities on 2026-10-11. Live provider tests have not run here because AWS/R2 credentials and disposable buckets are unavailable; npm ownership/publication and private-reporting setup remain pending.
 
 ## Live provider tests
 
