@@ -8,6 +8,7 @@ import { compileTenantPattern, type TenantPattern } from '../../../lib/tenant/pa
 import { newState, type Config, type Page, type State, type Totals } from './model.ts';
 import { applyPage, tenantFor } from './scan.ts';
 import { validateState } from './state.ts';
+import { sqliteRows } from './sqlite-rows.ts';
 
 const APPLICATION_ID = 0x544d5452; // TMTR
 const SCHEMA_VERSION = 1;
@@ -165,7 +166,7 @@ export class DiskStore {
       const state = store.state();
       if (Object.keys(state.tenants).length || db.prepare('SELECT count(*) AS count FROM metadata').get()?.count !== 1) throw invalid();
       let bytes = BigInt(state.unmatched.bytes), objects = state.unmatched.objects, checked = 0;
-      for (const row of db.prepare('SELECT tenantId, bytes, objects FROM tenants').iterate()) {
+      for (const row of sqliteRows(db.prepare('SELECT tenantId, bytes, objects FROM tenants'))) {
         if (typeof row.tenantId !== 'string' || !validTenant(row.tenantId) || typeof row.bytes !== 'string' ||
             !/^(0|[1-9][0-9]*)$/.test(row.bytes) || typeof row.objects !== 'number' || !Number.isSafeInteger(row.objects) || row.objects < 0) throw invalid();
         bytes += BigInt(row.bytes); objects += row.objects;
@@ -173,7 +174,7 @@ export class DiskStore {
         if (++checked % 1000 === 0) await setImmediate(undefined, { signal: options.signal });
       }
       if (bytes.toString() !== state.bytes || objects !== state.objects) throw invalid();
-      for (const row of db.prepare('SELECT cursor FROM cursors').iterate()) {
+      for (const row of sqliteRows(db.prepare('SELECT cursor FROM cursors'))) {
         if (typeof row.cursor !== 'string' || !row.cursor.length || !wellFormed(row.cursor)) throw invalid();
         if (++checked % 1000 === 0) await setImmediate(undefined, { signal: options.signal });
       }
@@ -221,7 +222,7 @@ export class DiskStore {
     return this.db.prepare('SELECT 1 FROM cursors WHERE cursor = ?').get(cursor) !== undefined;
   }
   *rows(): IterableIterator<{ tenantId: string; bytes: string; objects: number }> {
-    for (const row of this.db.prepare('SELECT tenantId, bytes, objects FROM tenants ORDER BY length(bytes) DESC, bytes DESC, tenantId COLLATE BINARY ASC').iterate()) {
+    for (const row of sqliteRows(this.db.prepare('SELECT tenantId, bytes, objects FROM tenants ORDER BY length(bytes) DESC, bytes DESC, tenantId COLLATE BINARY ASC'))) {
       yield { tenantId: row.tenantId as string, bytes: row.bytes as string, objects: row.objects as number };
     }
   }

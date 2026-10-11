@@ -43,8 +43,10 @@ test('disk comparison matches in-memory schema, status and CSV/table output', as
     assert.equal(render(result.chunks('table', 1)), renderComparison(expected, 'table', 1));
     assert.equal(result.different, 3);
     assert.equal(result.hasDifferences, true);
-    assert.equal((await stat(result.scratchPath)).mode & 0o777, 0o700);
-    assert.equal((await stat(join(result.scratchPath, 'rows.sqlite'))).mode & 0o777, 0o600);
+    if (process.platform !== 'win32') {
+      assert.equal((await stat(result.scratchPath)).mode & 0o777, 0o700);
+      assert.equal((await stat(join(result.scratchPath, 'rows.sqlite'))).mode & 0o777, 0o600);
+    }
   } finally {
     await result.close();
     await rm(directory, {recursive: true, force: true});

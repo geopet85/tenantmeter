@@ -7,6 +7,7 @@ import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import { csvRows, decimalBytes } from './csv.ts';
 import { csvCell } from './report.ts';
 import type { State, Totals } from './model.ts';
+import { sqliteRows } from './sqlite-rows.ts';
 
 export interface Snapshot {
   state: State;
@@ -122,7 +123,7 @@ async function buildResults(db: DatabaseSync, kind: 'compare' | 'diff', signal?:
   db.exec('BEGIN');
   try {
     let count = 0;
-    for (const row of db.prepare(joined).iterate() as Iterable<SqlRow>) {
+    for (const row of sqliteRows(db.prepare(joined)) as Iterable<SqlRow>) {
       checkAbort(signal);
       const leftPresent = row.left_bytes !== null;
       const rightPresent = row.right_bytes !== null;
@@ -155,7 +156,7 @@ function* resultRows(db: DatabaseSync, kind: 'compare' | 'diff', changedOnly = f
   const where = changedOnly ? `WHERE status != '${kind === 'compare' ? 'equal' : 'unchanged'}'` : '';
   const sql = `SELECT tenant_id,status,left_bytes,right_bytes,delta_bytes,left_objects,right_objects,delta_objects FROM results ${where} ORDER BY ${order}${limit === undefined ? '' : ' LIMIT ?'}`;
   const statement = db.prepare(sql);
-  const rows = (limit === undefined ? statement.iterate() : statement.iterate(limit)) as Iterable<SqlRow>;
+  const rows = (limit === undefined ? sqliteRows(statement) : sqliteRows(statement, limit)) as Iterable<SqlRow>;
   for (const row of rows) yield {
     tenantId: asText(row.tenant_id), status: asText(row.status),
     leftBytes: asText(row.left_bytes), rightBytes: asText(row.right_bytes), deltaBytes: asText(row.delta_bytes),

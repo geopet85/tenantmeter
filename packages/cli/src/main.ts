@@ -16,6 +16,7 @@ import { compareCounters, renderComparison } from './compare.ts';
 import { DiskStore } from './disk.ts';
 import { openCheckpoint, isSqlite, protectOutput } from './checkpoint.ts';
 import { compareDisk, diffDisk } from './disk-commands.ts';
+import { doctor, renderDoctor } from './doctor.ts';
 
 async function ensureNew(path: string) {
   try { await access(path); }
@@ -58,6 +59,12 @@ async function withCancellation<T>(work: (signal: AbortSignal) => Promise<T>) {
 async function main() {
   const opts = options(process.argv.slice(2));
   if (opts.early !== undefined) { await emit(opts.early); return; }
+  if (opts.command === 'doctor') {
+    const result = await doctor({storage: opts.storage, state: opts.state, output: opts.output, config: opts.doctorConfig});
+    await emit(renderDoctor(result, opts.format));
+    process.exitCode = result.ok ? 0 : 1;
+    return;
+  }
   if (opts.command === 'migrate') {
     const path = resolve(opts.state!), output = resolve(opts.output!);
     await protectOutput(output, [path]);

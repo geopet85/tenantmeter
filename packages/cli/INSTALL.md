@@ -65,7 +65,7 @@ Without Git, open the [repository](https://github.com/geopet85/tenantmeter), sel
 
 `npm ci` installs the locked dependencies; its first run needs registry access. `npm run check` checks types, runs offline tests, and builds `dist/tenantmeter.js`. The demo prints 2,505 objects and 5,501,000,000 bytes. It saves a local checkpoint under `.tenantmeter-state/`.
 
-Run commands from `packages/cli`, for example `node dist/tenantmeter.js --help`. The npm package is not published. To add a global `tenantmeter` command, see [local tarball installation](README.md#install-from-this-checkout).
+Run commands from `packages/cli`, for example `node dist/tenantmeter.js --help`. Run `node dist/tenantmeter.js doctor` to check local Node/SQLite support and checkpoint-directory access without contacting a cloud provider. The npm package is not published. To add a global `tenantmeter` command, see [local tarball installation](README.md#install-from-this-checkout).
 
 ## Fix common setup errors
 

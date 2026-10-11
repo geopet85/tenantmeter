@@ -1,0 +1,292 @@
+{
+  "node": "v22.23.3",
+  "platform": "darwin",
+  "architecture": "x64",
+  "tenants": 1000000,
+  "heapLimitMiB": 64,
+  "totalMilliseconds": 256374.33,
+  "peakRssKiB": 145932,
+  "sampledPeakHeapUsedBytes": 32099064,
+  "stages": [
+    {
+      "name": "scan_first_half",
+      "milliseconds": 12944.54,
+      "sampledPeakHeapUsedBytes": 32099064,
+      "lifetimePeakRssKiB": 133452
+    },
+    {
+      "name": "resume_validation",
+      "milliseconds": 1792.5,
+      "sampledPeakHeapUsedBytes": 27478928,
+      "lifetimePeakRssKiB": 133452
+    },
+    {
+      "name": "scan_second_half",
+      "milliseconds": 11389.93,
+      "sampledPeakHeapUsedBytes": 30705296,
+      "lifetimePeakRssKiB": 134536
+    },
+    {
+      "name": "report_open_validation",
+      "milliseconds": 4310.64,
+      "sampledPeakHeapUsedBytes": 28893392,
+      "lifetimePeakRssKiB": 135432
+    },
+    {
+      "name": "report_json_export",
+      "milliseconds": 11931.33,
+      "sampledPeakHeapUsedBytes": 26531648,
+      "lifetimePeakRssKiB": 135432
+    },
+    {
+      "name": "report_csv_export",
+      "milliseconds": 16624.43,
+      "sampledPeakHeapUsedBytes": 27343288,
+      "lifetimePeakRssKiB": 135432
+    },
+    {
+      "name": "verify_report_csv",
+      "milliseconds": 8601.73,
+      "sampledPeakHeapUsedBytes": 18901912,
+      "lifetimePeakRssKiB": 135432
+    },
+    {
+      "name": "counter_fixture",
+      "milliseconds": 1256.19,
+      "sampledPeakHeapUsedBytes": 20072456,
+      "lifetimePeakRssKiB": 135432
+    },
+    {
+      "name": "comparison_build",
+      "milliseconds": 51256.25,
+      "sampledPeakHeapUsedBytes": 29281408,
+      "lifetimePeakRssKiB": 135432
+    },
+    {
+      "name": "comparison_csv_export",
+      "milliseconds": 10086.8,
+      "sampledPeakHeapUsedBytes": 27900672,
+      "lifetimePeakRssKiB": 135432
+    },
+    {
+      "name": "changed_snapshot_scan",
+      "milliseconds": 25523.81,
+      "sampledPeakHeapUsedBytes": 31248776,
+      "lifetimePeakRssKiB": 135432
+    },
+    {
+      "name": "diff_open_validation",
+      "milliseconds": 4295.49,
+      "sampledPeakHeapUsedBytes": 29715416,
+      "lifetimePeakRssKiB": 135432
+    },
+    {
+      "name": "diff_build",
+      "milliseconds": 50053.07,
+      "sampledPeakHeapUsedBytes": 29835120,
+      "lifetimePeakRssKiB": 140136
+    },
+    {
+      "name": "diff_csv_sort_export",
+      "milliseconds": 35352.49,
+      "sampledPeakHeapUsedBytes": 28427488,
+      "lifetimePeakRssKiB": 145932
+    },
+    {
+      "name": "verify_comparison_and_diff_csv",
+      "milliseconds": 10636.27,
+      "sampledPeakHeapUsedBytes": 28287936,
+      "lifetimePeakRssKiB": 145932
+    }
+  ],
+  "verified": {
+    "beforeObjects": 1000000,
+    "beforeBytes": "32356304280",
+    "afterBytes": "32405303335",
+    "compareDifferences": 100000,
+    "diffDifferences": 1000000,
+    "diffDeltaBytes": "48999055",
+    "fullCsvRowsAndOrderingChecked": true,
+    "scratchRemoved": true
+  },
+  "files": {
+    "beforeCheckpointBytes": 67878912,
+    "afterCheckpointBytes": 67149824,
+    "counterCsvBytes": 23822264,
+    "comparisonScratchDatabaseBytes": 147320832,
+    "diffScratchDatabaseBytes": 174366720,
+    "exports": [
+      {
+        "file": "report.json",
+        "bytes": 94823121,
+        "sha256": "928c74de59c4782e986c9aa8b4727121c5e01aa61c2ce62f6c25416a842e93ac"
+      },
+      {
+        "file": "report.csv",
+        "bytes": 116822536,
+        "sha256": "ba2164604b28a2247bad40a26c1a837a20d164e3d5f2c781753932bded99d3c7"
+      },
+      {
+        "file": "comparison.csv",
+        "bytes": 48244556,
+        "sha256": "761fccfabeb9cfe775f8b9ea7ba3419d298c9c07912b9828767383d20a68b209"
+      },
+      {
+        "file": "diff.csv",
+        "bytes": 71554450,
+        "sha256": "8d1a8709d01d76ec27566a0ffa7aa28b936993246fe6a1f28b4e69ece580e4e9"
+      }
+    ],
+    "finalDisk": {
+      "namedScratchBytes": 0,
+      "namedScratchAllocatedBytes": 0,
+      "checkpointBytes": 135028736,
+      "inputBytes": 23822264,
+      "exportBytes": 331444663,
+      "allNamedBytes": 490376676
+    }
+  },
+  "disk": {
+    "sampleIntervalMilliseconds": 50,
+    "sampleCount": 5088,
+    "sampledPeaks": {
+      "namedScratchBytes": 174366720,
+      "namedScratchAllocatedBytes": 185577472,
+      "checkpointBytes": 135558776,
+      "inputBytes": 23822264,
+      "exportBytes": 331444663,
+      "allNamedBytes": 664743396
+    },
+    "stageSampledPeaks": {
+      "startup": {
+        "namedScratchBytes": 0,
+        "namedScratchAllocatedBytes": 0,
+        "checkpointBytes": 0,
+        "inputBytes": 0,
+        "exportBytes": 0,
+        "allNamedBytes": 0
+      },
+      "scan_first_half": {
+        "namedScratchBytes": 0,
+        "namedScratchAllocatedBytes": 0,
+        "checkpointBytes": 34739256,
+        "inputBytes": 0,
+        "exportBytes": 0,
+        "allNamedBytes": 34820269
+      },
+      "resume_validation": {
+        "namedScratchBytes": 0,
+        "namedScratchAllocatedBytes": 0,
+        "checkpointBytes": 34697216,
+        "inputBytes": 0,
+        "exportBytes": 0,
+        "allNamedBytes": 34778229
+      },
+      "scan_second_half": {
+        "namedScratchBytes": 0,
+        "namedScratchAllocatedBytes": 0,
+        "checkpointBytes": 68466296,
+        "inputBytes": 0,
+        "exportBytes": 0,
+        "allNamedBytes": 68547309
+      },
+      "report_open_validation": {
+        "namedScratchBytes": 0,
+        "namedScratchAllocatedBytes": 0,
+        "checkpointBytes": 67878912,
+        "inputBytes": 0,
+        "exportBytes": 0,
+        "allNamedBytes": 67959925
+      },
+      "report_json_export": {
+        "namedScratchBytes": 0,
+        "namedScratchAllocatedBytes": 0,
+        "checkpointBytes": 67878912,
+        "inputBytes": 0,
+        "exportBytes": 94765056,
+        "allNamedBytes": 162724981
+      },
+      "report_csv_export": {
+        "namedScratchBytes": 0,
+        "namedScratchAllocatedBytes": 0,
+        "checkpointBytes": 67878912,
+        "inputBytes": 0,
+        "exportBytes": 211542737,
+        "allNamedBytes": 279502662
+      },
+      "verify_report_csv": {
+        "namedScratchBytes": 0,
+        "namedScratchAllocatedBytes": 0,
+        "checkpointBytes": 67878912,
+        "inputBytes": 0,
+        "exportBytes": 211645657,
+        "allNamedBytes": 279605582
+      },
+      "counter_fixture": {
+        "namedScratchBytes": 0,
+        "namedScratchAllocatedBytes": 0,
+        "checkpointBytes": 67878912,
+        "inputBytes": 23822264,
+        "exportBytes": 211645657,
+        "allNamedBytes": 303427846
+      },
+      "comparison_build": {
+        "namedScratchBytes": 147320832,
+        "namedScratchAllocatedBytes": 151068672,
+        "checkpointBytes": 67878912,
+        "inputBytes": 23822264,
+        "exportBytes": 211645657,
+        "allNamedBytes": 450748678
+      },
+      "comparison_csv_export": {
+        "namedScratchBytes": 147320832,
+        "namedScratchAllocatedBytes": 151056384,
+        "checkpointBytes": 67878912,
+        "inputBytes": 23822264,
+        "exportBytes": 259890213,
+        "allNamedBytes": 498993234
+      },
+      "changed_snapshot_scan": {
+        "namedScratchBytes": 0,
+        "namedScratchAllocatedBytes": 0,
+        "checkpointBytes": 135558776,
+        "inputBytes": 23822264,
+        "exportBytes": 259890213,
+        "allNamedBytes": 419352266
+      },
+      "diff_open_validation": {
+        "namedScratchBytes": 0,
+        "namedScratchAllocatedBytes": 0,
+        "checkpointBytes": 135028736,
+        "inputBytes": 23822264,
+        "exportBytes": 259890213,
+        "allNamedBytes": 418822226
+      },
+      "diff_build": {
+        "namedScratchBytes": 172086784,
+        "namedScratchAllocatedBytes": 185577472,
+        "checkpointBytes": 135028736,
+        "inputBytes": 23822264,
+        "exportBytes": 259890213,
+        "allNamedBytes": 590909010
+      },
+      "diff_csv_sort_export": {
+        "namedScratchBytes": 174366720,
+        "namedScratchAllocatedBytes": 185565184,
+        "checkpointBytes": 135028736,
+        "inputBytes": 23822264,
+        "exportBytes": 331444663,
+        "allNamedBytes": 664743396
+      },
+      "verify_comparison_and_diff_csv": {
+        "namedScratchBytes": 0,
+        "namedScratchAllocatedBytes": 0,
+        "checkpointBytes": 135028736,
+        "inputBytes": 23822264,
+        "exportBytes": 331444663,
+        "allNamedBytes": 490376676
+      }
+    }
+  },
+  "scope": "One local synthetic run, sequential stages in one heap-limited child. Includes durable page transactions of at most 1000 objects, halfway close/reopen and resume, full checkpoint validation, actual synced JSON/CSV report files, counter CSV import, scratch joins, diff sorting and full comparison/diff CSV exports. Excludes cloud listing and inventory parsing. RSS is the child lifetime high-water mark; sampled heap and named-file disk peaks can miss brief peaks. Disk sizes are logical file lengths (plus allocated blocks for named scratch); transient journals are included when sampled. Unlinked SQLite sorter spill files and total disk I/O are not measured. Parent polls independently of blocked child SQLite operations. Fixtures and outputs are removed after completion."
+}

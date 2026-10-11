@@ -1,8 +1,11 @@
 import { parseArgs } from 'node:util';
 import { compileTenantPattern } from '../../../lib/tenant/pattern.ts';
 import type { Config } from './model.ts';
+import packageMetadata from '../package.json' with { type: 'json' };
 
-export const help = `TenantMeter 0.1.0 — local storage usage by customer
+export const version = packageMetadata.version;
+
+export const help = `TenantMeter ${version} — local storage usage by customer
 
 Usage:
   tenantmeter demo [options]
@@ -14,6 +17,7 @@ Usage:
   tenantmeter compare --state STATE_FILE --counters FILE [--format table|json|csv]
   tenantmeter diff --before STATE_FILE --after STATE_FILE [--format table|json|csv]
   tenantmeter migrate --state JSON_CHECKPOINT --output NEW_SQLITE_FILE
+  tenantmeter doctor [--provider s3|r2 --bucket NAME --pattern PATTERN] [--storage json|sqlite] [--state PATH] [--output PATH]
 
 Options:
   --provider s3|r2         Storage provider
@@ -45,6 +49,9 @@ Options:
   --after FILE             Later complete checkpoint for diff
   --help                   Show help
   --version                Show version
+
+Doctor validates local CLI settings, Node/SQLite support, and new checkpoint/report paths.
+It prints diagnostics to stdout; its --output checks a proposed report path.
 
 Demo uses fake data, needs no credentials, and asks no confirmation.
 Progress and preview go to stderr. Reports go to stdout or --output.
@@ -88,9 +95,9 @@ export function options(args: string[]) {
     input: { type: 'string' }, manifest: { type: 'string' }, 'inventory-root': { type: 'string' },
     columns: { type: 'string' }, 'raw-keys': { type: 'boolean' }, counters: { type: 'string' }
   } });
-  if (values.help || values.version || args.length === 0) return { early: values.version ? '0.1.0\n' : help } as const;
-  const command = positionals[0];
-  if (positionals.length !== 1 || !['demo', 'analyze', 'report', 'inventory', 'compare', 'diff', 'migrate'].includes(command)) throw new Error('Choose analyze, demo, inventory, report, compare, diff, or migrate. Run tenantmeter --help.');
+  if (values.help || values.version || args.length === 0) return { early: values.version ? `${version}\n` : help } as const;
+  const command = positionals[0] as 'demo' | 'analyze' | 'report' | 'inventory' | 'compare' | 'diff' | 'migrate' | 'doctor';
+  if (positionals.length !== 1 || !['demo', 'analyze', 'report', 'inventory', 'compare', 'diff', 'migrate', 'doctor'].includes(command)) throw new Error('Choose analyze, demo, inventory, report, compare, diff, migrate, or doctor. Run tenantmeter --help.');
   const allowed: Record<string, Set<string>> = {
     demo: new Set(['storage', 'state', 'resume', 'max-objects', 'max-requests', 'max-seconds', 'all', 'estimate-objects', 'format', 'output', 'top', 'yes']),
     analyze: new Set(['storage', 'provider', 'bucket', 'pattern', 'region', 'account-id', 'jurisdiction', 'prefix', 'state', 'resume', 'max-objects', 'max-requests', 'max-seconds', 'all', 'estimate-objects', 'format', 'output', 'top', 'yes']),
@@ -98,10 +105,19 @@ export function options(args: string[]) {
     report: new Set(['state', 'format', 'output', 'top']),
     compare: new Set(['state', 'counters', 'format', 'output', 'top']),
     diff: new Set(['before', 'after', 'format', 'output', 'top']),
-    migrate: new Set(['state', 'output'])
+    migrate: new Set(['state', 'output']),
+    doctor: new Set(['provider', 'bucket', 'pattern', 'region', 'account-id', 'jurisdiction', 'prefix', 'storage', 'state', 'output', 'format'])
   };
   for (const key of Object.keys(values)) if (!allowed[command].has(key)) throw new Error(`--${key} is not supported by ${command}.`);
   if (values.storage !== undefined && !['json', 'sqlite'].includes(values.storage)) throw new Error('--storage must be json or sqlite.');
+  if (command === 'doctor') {
+    const format = values.format ?? 'table';
+    if (!['table', 'json', 'csv'].includes(format)) throw new Error('--format must be table, json, or csv.');
+    return {early: undefined, command, storage: (values.storage ?? 'json') as 'json' | 'sqlite',
+      state: values.state, output: values.output, format: format as 'table' | 'json' | 'csv',
+      doctorConfig: {provider: values.provider, bucket: values.bucket, pattern: values.pattern,
+        region: values.region, accountId: values['account-id'], jurisdiction: values.jurisdiction, prefix: values.prefix}} as const;
+  }
   if (values.resume && values.storage) throw new Error('Resume detects checkpoint storage. Remove --storage.');
   if (command === 'migrate' && (!values.state || !values.output)) throw new Error('Migrate requires --state JSON_CHECKPOINT and --output NEW_SQLITE_FILE.');
   if (values.all && values['max-objects']) throw new Error('Use --all or --max-objects, not both.');

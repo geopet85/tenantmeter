@@ -61,6 +61,18 @@ Scope: the free local CLI. Hosted accounts, billing submission, alerts, and hard
 - [x] Review SQLite design/implementation with GPT-6 Astra and resolve findings with GPT-6.1 Sol; verify command paths with GPT-6 Sol.
 - [x] Measure durable storage strategies and run a 200,000-customer disk workload under a 64 MiB JavaScript heap limit.
 
+## Release reliability
+
+- [x] Derive CLI version from package metadata and verify the installed package version.
+- [x] Add local doctor checks for Node, SQLite, configuration, and new file paths.
+- [x] Add exact minimum-runtime CI and a JSON-only Node 22.0 smoke check.
+- [x] Add deterministic disk-full, read-only, partial-write, fsync, and publication-failure tests.
+- [x] Add seeded JSON/SQLite scan, resume, comparison, and mixed-diff equivalence tests.
+- [x] Add a million-customer workflow benchmark for resume, reports, comparison, diff, memory, and named scratch usage.
+- [x] Add tagged release automation requiring CI, both live provider tests, private reporting, audit, and installed-package checks.
+- [x] Extend live verification to JSON and SQLite; reject versioned/object-locked S3 buckets before uploads.
+- [x] Document account setup, first publication, npm trusted publishing, and required cloud permissions.
+
 ## External checks
 
 - [ ] Run the live S3 scenario with a disposable unversioned bucket and credentials.

@@ -56,6 +56,20 @@ Each invocation creates a separate local checkpoint. Output files must not alrea
 
 Total: **5,501,000,000 bytes**, including unmatched objects. Demo results are synthetic, not customer evidence.
 
+## Check setup locally
+
+Run `tenantmeter doctor` to check the Node version, SQLite support, and the default checkpoint directory. Add the flags planned for a new scan to validate its mapping and proposed file locations:
+
+```sh
+tenantmeter doctor --storage sqlite \
+  --provider s3 --bucket YOUR_BUCKET --region eu-west-1 \
+  --pattern 'customers/{tenant_id}/*' \
+  --state ./checkpoints/next.sqlite --output ./reports/next.json \
+  --format json
+```
+
+Doctor prints to stdout; its `--output` names a proposed report file to check, and does not save the diagnostic there. It checks that proposed files are new and briefly creates and removes a private probe in an existing parent directory to test local writes. Exit code 0 means local checks passed; exit code 1 identifies a failing check. Use `--format table`, `json`, or `csv`. Doctor does not create checkpoints or reports, contact S3/R2, verify credentials, or prove bucket permissions. It does not print bucket names, account IDs, file paths, or credential values.
+
 ## AWS S3
 
 Use the [AWS SDK default credential chain](https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/setting-credentials-node.html). Existing profiles, SSO sessions, environment credentials, and configured roles are supported by the SDK. The CLI has no credential flags and does not store credentials.

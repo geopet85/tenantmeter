@@ -183,14 +183,25 @@ test('disk open rejects pathname replacement during validation without modifying
     const { DatabaseSync } = await import('node:sqlite');
     const foreign = new DatabaseSync(foreignPath); foreign.exec('CREATE TABLE foreign_data (value TEXT)'); foreign.close();
     const bytes = await readFile(foreignPath);
+    const originalBytes = await readFile(path);
+    let replacementBlocked = false;
     const signal = new AbortController().signal;
     let checks = 0;
     signal.throwIfAborted = () => {
-      if (++checks === 2) { renameSync(path, join(dir, 'original.sqlite')); writeFileSync(path, bytes); }
+      if (++checks === 2) {
+        try { renameSync(path, join(dir, 'original.sqlite')); }
+        catch (error) {
+          if (process.platform === 'win32' && ['EPERM', 'EACCES', 'EBUSY'].includes((error as NodeJS.ErrnoException).code ?? '')) replacementBlocked = true;
+          throw error;
+        }
+        writeFileSync(path, bytes);
+      }
     };
-    await assert.rejects(DiskStore.open(path, { signal }), /changed during validation/);
-    assert.deepEqual(await readFile(path), bytes);
-    const original = await DiskStore.open(join(dir, 'original.sqlite')); original.close();
+    await assert.rejects(DiskStore.open(path, { signal }), process.platform === 'win32'
+      ? /changed during validation|Invalid or unsupported disk checkpoint/ : /changed during validation/);
+    assert.deepEqual(await readFile(foreignPath), bytes);
+    assert.deepEqual(await readFile(path), replacementBlocked ? originalBytes : bytes);
+    const original = await DiskStore.open(replacementBlocked ? path : join(dir, 'original.sqlite')); original.close();
   });
 });
 

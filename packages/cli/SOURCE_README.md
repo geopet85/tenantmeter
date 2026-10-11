@@ -37,10 +37,11 @@ git clone https://github.com/geopet85/tenantmeter.git
 cd tenantmeter/packages/cli
 npm ci
 npm run check
+node dist/tenantmeter.js doctor
 node dist/tenantmeter.js demo
 ```
 
-`check` typechecks, runs offline tests, and builds the command. The demo needs no credentials. It reports **2,505 objects and 5,501,000,000 bytes**, including five unmatched objects. Checkpoints are saved under `.tenantmeter-state/`.
+`check` typechecks, runs offline tests, and builds the command. `doctor` checks local runtime support, configuration, and file paths without cloud requests. The demo needs no credentials. It reports **2,505 objects and 5,501,000,000 bytes**, including five unmatched objects. Checkpoints are saved under `.tenantmeter-state/`.
 
 The npm package is not published. Run `node dist/tenantmeter.js` from `packages/cli`, or [install a locally built tarball](packages/cli/README.md#install-from-this-checkout).
 
@@ -84,7 +85,7 @@ The inventory contains 33 bytes. Comparison exits **3** because acme's measured 
 - [Sample reports and expected totals](docs/examples/README.md)
 - [Disk checkpoints, migration, and large scans](docs/SCALING.md)
 - [Technical work done and remaining](packages/cli/TODO.md)
-- [Release checks](docs/CLI_NEXT_STEPS.md)
+- [Release checks](docs/CLI_NEXT_STEPS.md) and [npm publication setup](docs/RELEASING.md)
 - [Contributing](packages/cli/CONTRIBUTING.md) and [security](packages/cli/SECURITY.md)
 - [Promotion and prospecting](docs/CLI_LAUNCH_GUIDE.md)
 - [MIT license](LICENSE)

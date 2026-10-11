@@ -15,12 +15,12 @@ if (!isAbsolute(argument) || (!distance.startsWith(`..${sep}`) && distance !== '
 }
 await mkdir(destination, { recursive: false }); // Refuse to overwrite an existing directory.
 const files = [
-  '.nvmrc', '.gitignore', '.github/workflows/cli.yml', '.github/ISSUE_TEMPLATE/cli-feedback.yml',
+  '.nvmrc', '.gitignore', '.github/workflows/cli.yml', '.github/workflows/release.yml', '.github/ISSUE_TEMPLATE/cli-feedback.yml',
   ...['src', 'tests', 'scripts', 'TODO.md', 'SOURCE_README.md', 'package.json', 'package-lock.json', 'tsconfig.json', 'build.mjs', 'export-source.mjs',
     'README.md', 'INSTALL.md', 'SCALING.md', 'LICENSE', 'SECURITY.md', 'CONTRIBUTING.md', 'CHANGELOG.md'].map(path => `packages/cli/${path}`),
   'lib/tenant/pattern.ts', 'lib/scans/aggregate.ts', 'lib/providers/types.ts',
   'tests/pattern.test.ts', 'tests/aggregate.test.ts',
-  'docs/CLI_NEXT_STEPS.md', 'docs/CLI_LAUNCH_GUIDE.md', 'docs/PERFORMANCE.md', 'docs/SCALING.md',
+  'docs/benchmarks', 'docs/RELEASING.md', 'docs/CLI_NEXT_STEPS.md', 'docs/CLI_LAUNCH_GUIDE.md', 'docs/PERFORMANCE.md', 'docs/SCALING.md',
   ...['README.md', 'demo.txt', 'demo.json', 'demo.csv', 'inventory.csv', 'counters.csv', 'inventory-report.json', 'inventory-after.csv', 'diff.json', 'comparison.json', 'schedule.json', 'manifest', 'scenario'].map(path => `docs/examples/${path}`)
 ];
 for (const path of files) {

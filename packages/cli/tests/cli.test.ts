@@ -44,7 +44,8 @@ test('CLI rejects unattended cloud scans before creating state or accessing cred
     assert.equal(result.status, 1);
     assert.match(result.stderr, /require --yes/);
     assert.equal(cli(['--help'], dir).status, 0);
-    assert.equal(cli(['--version'], dir).stdout, '0.1.0\n');
+    const {version} = JSON.parse(await readFile(resolve('package.json'), 'utf8'));
+    assert.equal(cli(['--version'], dir).stdout, `${version}\n`);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 

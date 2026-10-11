@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { S3Client, PutObjectCommand, DeleteObjectsCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectsCommand, GetBucketVersioningCommand, GetObjectLockConfigurationCommand } from '@aws-sdk/client-s3';
 const exec = promisify(execFile);
 const enabled = process.env.RUN_LIVE === '1' && process.env.TENANTMETER_ALLOW_TEST_WRITES === '1';
 
@@ -45,6 +45,16 @@ test('live provider: known fixtures, pagination, resume, prefix, unmatched and o
     }
   }
   try {
+    if (provider === 's3') {
+      const versioning = await client.send(new GetBucketVersioningCommand({Bucket: bucket}));
+      assert.equal(versioning.Status, undefined, 'Use a disposable bucket that has never enabled versioning.');
+      try {
+        const lock = await client.send(new GetObjectLockConfigurationCommand({Bucket: bucket}));
+        assert.notEqual(lock.ObjectLockConfiguration?.ObjectLockEnabled, 'Enabled', 'Use a bucket without object lock.');
+      } catch (error) {
+        if ((error as {name?: string}).name !== 'ObjectLockConfigurationNotFoundError') throw error;
+      }
+    }
     for (let index = 0; index < fixtures.length; index += 16) {
       const results = await Promise.allSettled(fixtures.slice(index, index + 16).map(async row => {
         attempted.push(row.key);
@@ -67,6 +77,13 @@ test('live provider: known fixtures, pagination, resume, prefix, unmatched and o
       assert.equal(result.tenants.find((x: any) => x.tenantId === 'beta').bytes, '3507');
     }
     assert.deepEqual((await cli(['report', '--state', state, '--format', 'json'])).total, resumed.total);
+    const diskState = join(dir, 'partial.sqlite');
+    assert.equal((await cli([...base, '--storage', 'sqlite', '--state', diskState, '--max-objects', '1001'], 2)).total.objects, 1001);
+    const diskResumed = await cli(['analyze', '--resume', diskState, '--all', '--yes', '--format', 'json']);
+    assert.deepEqual(diskResumed.total, resumed.total);
+    assert.deepEqual(diskResumed.unmatched, resumed.unmatched);
+    assert.deepEqual(diskResumed.tenants, resumed.tenants);
+    assert.deepEqual((await cli(['report', '--state', diskState, '--format', 'json'])).total, resumed.total);
     const empty = [...base]; empty[empty.indexOf('--prefix') + 1] = `${prefix}absent/`;
     assert.equal((await cli([...empty, '--state', join(dir, 'empty.json')])).total.objects, 0);
     const unmatched = [...base]; unmatched[unmatched.indexOf('--pattern') + 1] = 'absent/{tenant_id}/*';

@@ -32,4 +32,7 @@
 - Explicit JSON migration, hot-journal recovery, snapshot locking, and malformed Unicode rejection.
 - Storage benchmark and tested large-scan/recovery instructions.
 
+- Local doctor checks, package-derived version, minimum-runtime checks, failure injection, and seeded storage equivalence tests.
+- Tagged release workflow with required live provider verification and npm trusted publishing.
+
 Source is public. Live provider verification and npm publication remain pending.

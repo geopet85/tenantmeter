@@ -63,6 +63,8 @@ The export includes source, tests, scripts, helpers, fixtures, license, CI, and 
 
 ## Publication
 
+Follow [release setup and tagged publication](RELEASING.md) for the tested commands, npm ownership, private reporting, GitHub environments, and automated release gates.
+
 1. Verify ownership of the intended npm scope. The source repository is [geopet85/tenantmeter](https://github.com/geopet85/tenantmeter).
 2. Set the actual package name; repository/issue/homepage URLs already point to this repository. Verify those links in `packages/cli/package.json`. Run `npm install --package-lock-only` afterward. If renaming, update global-install examples too.
 3. Configure GitHub private vulnerability reporting or a monitored security contact. Update `SECURITY.md`.
@@ -72,7 +74,7 @@ The export includes source, tests, scripts, helpers, fixtures, license, CI, and 
 7. Authenticate to npm and intentionally run `npm publish --access public` from `packages/cli`.
 8. Update install instructions with the verified npm package name and release version. Keep repository and issue links current.
 
-Source is already public on GitHub. The npm package is not published. Publication is not automated.
+Source is already public on GitHub. The npm package is not published. Tagged publication is automated after account setup and live verification; missing configuration fails the release.
 
 ## After release
 

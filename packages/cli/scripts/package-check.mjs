@@ -31,6 +31,10 @@ try {
   const installed = JSON.parse(await readFile(join(temp, 'node_modules', ...manifest.name.split('/'), 'package.json'), 'utf8'));
   assert.deepEqual(installed.dependencies, manifest.dependencies);
   const entry = join(temp, 'node_modules', ...manifest.name.split('/'), 'dist/tenantmeter.js');
+  assert.equal(run(process.execPath, [entry, '--version'], temp).trim(), manifest.version);
+  const diagnostic = JSON.parse(run(process.execPath, [entry, 'doctor', '--storage', 'sqlite', '--format', 'json'], temp));
+  assert.equal(diagnostic.ok, true);
+  assert.equal(diagnostic.version, manifest.version);
   const report = JSON.parse(run(process.execPath, [entry, 'demo', '--state', join(temp, 'state.json'), '--format', 'json'], temp));
   assert.equal(report.total.bytes, '5501000000'); assert.equal(report.total.objects, 2505);
   const state = JSON.parse(await readFile(join(temp, 'state.json'), 'utf8'));

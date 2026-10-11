@@ -34,7 +34,11 @@
     "test:live": "node --import tsx --test tests/live/provider.test.ts",
     "bench": "node --expose-gc --import tsx scripts/benchmark.mjs",
     "bench:reports": "node --expose-gc --import tsx scripts/report-benchmark.mjs",
-    "bench:storage": "node --expose-gc --import tsx scripts/storage-benchmark.mjs"
+    "bench:storage": "node --expose-gc --import tsx scripts/storage-benchmark.mjs",
+    "test:runtime": "npm run build && node scripts/runtime-check.mjs",
+    "test:live:required": "node scripts/live-required.mjs",
+    "release:check": "node scripts/release-check.mjs",
+    "bench:storage:workflow": "node --expose-gc --import tsx scripts/storage-workflow-benchmark.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.900.0"
